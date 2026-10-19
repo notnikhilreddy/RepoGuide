@@ -1,0 +1,30 @@
+[
+    {
+      "question": "Where is the FastAPI application created?",
+      "expected_paths": ["src/repoguide/main.py"]
+    },
+    {
+      "question": "Where are environment settings defined?",
+      "expected_paths": ["src/repoguide/config.py"]
+    },
+    {
+      "question": "Where is a GitHub repository cloned?",
+      "expected_paths": ["src/repoguide/git_utils.py"]
+    },
+    {
+      "question": "Where are embeddings generated?",
+      "expected_paths": ["src/repoguide/embeddings.py"]
+    },
+    {
+      "question": "Where is cosine vector retrieval implemented?",
+      "expected_paths": ["src/repoguide/retriever.py"]
+    },
+    {
+      "question": "Where is the Python AST parser implemented?",
+      "expected_paths": ["src/repoguide/parser.py"]
+    },
+    {
+      "question": "Where are repository chunks saved to the database?",
+      "expected_paths": ["src/repoguide/indexer.py"]
+    }
+  ]

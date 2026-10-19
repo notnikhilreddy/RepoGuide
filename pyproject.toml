@@ -1,0 +1,36 @@
+[project]
+name = "repoguide"
+version = "0.1.0"
+description = "Repository intelligence and grounded codebase Q&A"
+readme = "README.md"
+authors = [
+    { name = "Nikhil Reddy", email = "nikhilreddy.maligireddy2@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.0",
+    "fastapi>=0.143.0",
+    "google-genai>=2.29.0",
+    "openai>=3.35.1",
+    "pgvector>=0.5.0",
+    "psycopg[binary]>=3.3.6",
+    "pydantic-settings>=2.15.0",
+    "sentence-transformers>=6.1.0",
+    "sqlalchemy>=2.1.4",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+repoguide = "repoguide:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.10",
+]
