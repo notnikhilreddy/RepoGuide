@@ -1,30 +1,213 @@
 [
-    {
-      "question": "Where is the FastAPI application created?",
-      "expected_paths": ["src/repoguide/main.py"]
-    },
-    {
-      "question": "Where are environment settings defined?",
-      "expected_paths": ["src/repoguide/config.py"]
-    },
-    {
-      "question": "Where is a GitHub repository cloned?",
-      "expected_paths": ["src/repoguide/git_utils.py"]
-    },
-    {
-      "question": "Where are embeddings generated?",
-      "expected_paths": ["src/repoguide/embeddings.py"]
-    },
-    {
-      "question": "Where is cosine vector retrieval implemented?",
-      "expected_paths": ["src/repoguide/retriever.py"]
-    },
-    {
-      "question": "Where is the Python AST parser implemented?",
-      "expected_paths": ["src/repoguide/parser.py"]
-    },
-    {
-      "question": "Where are repository chunks saved to the database?",
-      "expected_paths": ["src/repoguide/indexer.py"]
-    }
-  ]
+  {
+    "question": "Where is the FastAPI application created?",
+    "expected_paths": [
+      "src/repoguide/main.py"
+    ]
+  },
+  {
+    "question": "Where are environment settings and application configuration defined?",
+    "expected_paths": [
+      "src/repoguide/config.py"
+    ]
+  },
+  {
+    "question": "Where is a GitHub repository cloned?",
+    "expected_paths": [
+      "src/repoguide/git_utils.py"
+    ]
+  },
+  {
+    "question": "Where are embeddings generated?",
+    "expected_paths": [
+      "src/repoguide/embeddings.py"
+    ]
+  },
+  {
+    "question": "Where is vector similarity retrieval implemented?",
+    "expected_paths": [
+      "src/repoguide/retriever.py"
+    ]
+  },
+  {
+    "question": "Where are repository source files collected and parsed into chunks?",
+    "expected_paths": [
+      "src/repoguide/parser.py"
+    ]
+  },
+  {
+    "question": "Where is the logic for answering repository questions using retrieved context?",
+    "expected_paths": [
+      "src/repoguide/rag.py"
+    ]
+  },
+  {
+    "question": "Where is the LLM called to generate an answer?",
+    "expected_paths": [
+      "src/repoguide/llm.py"
+    ]
+  },
+  {
+    "question": "Where are API request and response schemas defined?",
+    "expected_paths": [
+      "src/repoguide/schemas.py"
+    ]
+  },
+  {
+    "question": "Where is repository static analysis and code graph construction implemented?",
+    "expected_paths": [
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "Which code collects repository files and which functions consume that file collection?",
+    "expected_paths": [
+      "src/repoguide/parser.py",
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "Which components are involved in parsing a repository and turning its source code into searchable chunks?",
+    "expected_paths": [
+      "src/repoguide/parser.py",
+      "src/repoguide/embeddings.py"
+    ]
+  },
+  {
+    "question": "How does a user question go from retrieval to final LLM answer generation?",
+    "expected_paths": [
+      "src/repoguide/retriever.py",
+      "src/repoguide/rag.py",
+      "src/repoguide/llm.py"
+    ]
+  },
+  {
+    "question": "Which modules are involved in embedding a question and retrieving similar repository chunks?",
+    "expected_paths": [
+      "src/repoguide/embeddings.py",
+      "src/repoguide/retriever.py"
+    ]
+  },
+  {
+    "question": "Which module calls the retriever and then sends retrieved repository evidence to the language model?",
+    "expected_paths": [
+      "src/repoguide/rag.py",
+      "src/repoguide/retriever.py",
+      "src/repoguide/llm.py"
+    ]
+  },
+  {
+    "question": "Trace the flow from a repository source file to a stored searchable representation.",
+    "expected_paths": [
+      "src/repoguide/parser.py",
+      "src/repoguide/embeddings.py"
+    ]
+  },
+  {
+    "question": "Trace the flow from a user's repository question to the generated answer.",
+    "expected_paths": [
+      "src/repoguide/retriever.py",
+      "src/repoguide/rag.py",
+      "src/repoguide/llm.py"
+    ]
+  },
+  {
+    "question": "Which modules participate in the complete RAG pipeline?",
+    "expected_paths": [
+      "src/repoguide/embeddings.py",
+      "src/repoguide/retriever.py",
+      "src/repoguide/rag.py",
+      "src/repoguide/llm.py"
+    ]
+  },
+  {
+    "question": "How does RepoGuide discover source files and use them for both chunk parsing and structural code analysis?",
+    "expected_paths": [
+      "src/repoguide/parser.py",
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "Which modules would potentially be affected if collect_source_files changed its behavior?",
+    "expected_paths": [
+      "src/repoguide/parser.py",
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "Which components would potentially be affected if the format of parsed repository chunks changed?",
+    "expected_paths": [
+      "src/repoguide/parser.py",
+      "src/repoguide/embeddings.py",
+      "src/repoguide/retriever.py",
+      "src/repoguide/rag.py"
+    ]
+  },
+  {
+    "question": "Which components would potentially need changes if the retriever changed the structure of its returned results?",
+    "expected_paths": [
+      "src/repoguide/retriever.py",
+      "src/repoguide/rag.py"
+    ]
+  },
+  {
+    "question": "Which components are responsible for constructing repository evidence and ultimately turning that evidence into natural-language output?",
+    "expected_paths": [
+      "src/repoguide/retriever.py",
+      "src/repoguide/rag.py",
+      "src/repoguide/llm.py"
+    ]
+  },
+  {
+    "question": "Where does repository structural analysis begin, and which shared repository utility does it depend on?",
+    "expected_paths": [
+      "src/repoguide/intelligence.py",
+      "src/repoguide/parser.py"
+    ]
+  },
+  {
+    "question": "How are function calls discovered and resolved into relationships between repository symbols?",
+    "expected_paths": [
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "How are JavaScript and TypeScript imports connected to function call targets?",
+    "expected_paths": [
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "Where are repository dependencies discovered from project manifests such as pyproject.toml, requirements.txt, and package.json?",
+    "expected_paths": [
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "How does RepoGuide determine which function a call expression refers to across files?",
+    "expected_paths": [
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "What is the end-to-end data flow from repository source code to retrieval and answer generation?",
+    "expected_paths": [
+      "src/repoguide/parser.py",
+      "src/repoguide/embeddings.py",
+      "src/repoguide/retriever.py",
+      "src/repoguide/rag.py",
+      "src/repoguide/llm.py"
+    ]
+  },
+  {
+    "question": "What are the major components involved from repository ingestion through structural analysis, semantic retrieval, and final question answering?",
+    "expected_paths": [
+      "src/repoguide/parser.py",
+      "src/repoguide/intelligence.py",
+      "src/repoguide/embeddings.py",
+      "src/repoguide/retriever.py",
+      "src/repoguide/rag.py",
+      "src/repoguide/llm.py"
+    ]
+  }
+]

@@ -10,7 +10,10 @@ SKIP_DIRECTORIES = {
     "dist", "build", "__pycache__", ".pytest_cache",
 }
 
-ALLOWED_SUFFIXES = {".py", ".md", ".rst"}
+ALLOWED_SUFFIXES = {
+    ".py", ".md", ".rst",
+    ".js", ".jsx", ".ts", ".tsx",
+}
 
 MAX_FILE_BYTES = 500_000
 MAX_REPOSITORY_BYTES = 25_000_000
@@ -213,7 +216,9 @@ def parse_repository(root: Path) -> list[ParsedChunk]:
         if path.suffix.lower() == ".py":
             chunks.extend(parse_python_file(path, root))
 
-        elif path.suffix.lower() in {".md", ".rst"}:
+        elif path.suffix.lower() in {
+            ".md", ".rst", ".js", ".jsx", ".ts", ".tsx"
+        }:
             chunks.extend(parse_text_file(path, root))
 
     return chunks

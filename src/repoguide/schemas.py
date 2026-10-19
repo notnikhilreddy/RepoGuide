@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, HttpUrl
+from typing import Literal
 
 
 class IndexRepositoryRequest(BaseModel):
@@ -15,6 +16,7 @@ class RepositoryResponse(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
     top_k: int = Field(default=8, ge=1, le=20)
+    retrieval_mode: Literal["dense", "graph"] = "graph"
 
 
 class SourceResponse(BaseModel):
@@ -23,7 +25,8 @@ class SourceResponse(BaseModel):
     symbol_name: str | None
     start_line: int
     end_line: int
-    distance: float
+    distance: float | None
+    origin: Literal["dense", "graph"]
 
 
 class AskResponse(BaseModel):

@@ -15,6 +15,7 @@ from repoguide.schemas import (
     IndexRepositoryRequest,
     RepositoryResponse,
 )
+from repoguide.graph_api import router as graph_router
 
 
 app = FastAPI(
@@ -22,6 +23,7 @@ app = FastAPI(
     description="Understand GitHub repositories using grounded RAG.",
     version="0.1.0",
 )
+app.include_router(graph_router)
 
 
 SessionDep = Annotated[Session, Depends(get_db)]
@@ -119,6 +121,7 @@ def ask_repository(
         repo_id=repo_id,
         question=request.question,
         top_k=request.top_k,
+        retrieval_mode=request.retrieval_mode,
     )
 
     return AskResponse(**result)
