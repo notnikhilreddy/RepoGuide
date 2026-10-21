@@ -24,7 +24,9 @@ class AskRequest(BaseModel):
         "hybrid_rerank",
         "hybrid_graph",
         "hybrid_graph_rerank",
+        "agent",
     ] = "hybrid"
+    docs_policy: Literal["auto", "always", "never"] = "auto"
 
 
 class SourceResponse(BaseModel):
@@ -40,6 +42,16 @@ class SourceResponse(BaseModel):
     rerank_score: float | None = None
 
 
+class DocumentationSource(BaseModel):
+    label: str
+    library: str
+    topic: str
+    title: str
+    url: str
+
+
 class AskResponse(BaseModel):
     answer: str
     sources: list[SourceResponse]
+    docs_sources: list[DocumentationSource] = Field(default_factory=list)
+    trace: list[str] = Field(default_factory=list)

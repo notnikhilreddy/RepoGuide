@@ -16,6 +16,7 @@ from repoguide.schemas import (
     RepositoryResponse,
 )
 from repoguide.graph_api import router as graph_router
+from repoguide.agent import answer_with_agent
 
 
 app = FastAPI(
@@ -112,12 +113,21 @@ def ask_repository(
             detail="Repository is not ready",
         )
 
-    result = answer_question(
-        session=session,
-        repo_id=repo_id,
-        question=request.question,
-        top_k=request.top_k,
-        retrieval_mode=request.retrieval_mode,
-    )
+    if request.retrieval_mode == "agent":
+        result = answer_with_agent(
+            repo_id=repo_id,
+            question=request.question,
+            top_k=request.top_k,
+            docs_policy=request.docs_policy,
+        )
+    else:
+        result = answer_question(
+            session=session,
+            repo_id=repo_id,
+            question=request.question,
+            top_k=request.top_k,
+            retrieval_mode=request.retrieval_mode,
+        )
 
     return AskResponse(**result)
+
