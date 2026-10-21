@@ -8,17 +8,11 @@ from repoguide.retriever import retrieve
 
 def main():
     if len(sys.argv) != 2:
-        raise SystemExit(
-            "Usage: uv run python evals/run_retrieval.py REPO_ID"
-        )
+        raise SystemExit("Usage: uv run python evals/run_retrieval.py REPO_ID")
 
     repo_id = sys.argv[1]
 
-    cases = json.loads(
-        Path("evals/retrieval.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    cases = json.loads(Path("evals/retrieval.json").read_text(encoding="utf-8"))
 
     if not cases:
         raise ValueError("Evaluation dataset is empty")
@@ -36,18 +30,12 @@ def main():
                 top_k=5,
             )
 
-            paths = [
-                result.chunk.file_path
-                for result in results
-            ]
+            paths = [result.chunk.file_path for result in results]
 
             expected = set(case["expected_paths"])
 
             rank = next(
-                (
-                    i for i, path in enumerate(paths, start=1)
-                    if path in expected
-                ),
+                (i for i, path in enumerate(paths, start=1) if path in expected),
                 None,
             )
 

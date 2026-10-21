@@ -1,4 +1,5 @@
 """Graph-aware retrieval while keeping a fixed evidence budget."""
+
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -16,11 +17,13 @@ class Evidence:
 
 
 def retrieve_with_graph(
-    *, session: Session, repo_id: str, question: str, top_k: int = 8,
+    *,
+    session: Session,
+    repo_id: str,
+    question: str,
+    top_k: int = 8,
 ) -> list[Evidence]:
-    vectors = retrieve(
-        session=session, repo_id=repo_id, question=question, top_k=top_k
-    )
+    vectors = retrieve(session=session, repo_id=repo_id, question=question, top_k=top_k)
     if not vectors:
         return []
 
@@ -36,25 +39,31 @@ def retrieve_with_graph(
         if not chunk.symbol_name:
             continue  # Module-level windows have no unambiguous symbol identity.
         symbol = session.scalar(
-            select(CodeSymbol).where(
+            select(CodeSymbol)
+            .where(
                 CodeSymbol.repo_id == repo_id,
                 CodeSymbol.file_path == chunk.file_path,
                 CodeSymbol.qualified_name == chunk.symbol_name,
                 CodeSymbol.start_line <= chunk.end_line,
                 CodeSymbol.end_line >= chunk.start_line,
-            ).order_by(CodeSymbol.start_line.desc()).limit(1)
+            )
+            .order_by(CodeSymbol.start_line.desc())
+            .limit(1)
         )
         if symbol and symbol.kind in {"function", "method"}:
             source_symbols.append(symbol.id)
 
     if source_symbols:
         edges = session.scalars(
-            select(CodeEdge).where(
+            select(CodeEdge)
+            .where(
                 CodeEdge.repo_id == repo_id,
                 CodeEdge.kind == "calls",
                 CodeEdge.source_symbol_id.in_(source_symbols),
                 CodeEdge.target_symbol_id.is_not(None),
-            ).order_by(CodeEdge.line).limit(50)
+            )
+            .order_by(CodeEdge.line)
+            .limit(50)
         ).all()
 
         for edge in edges:

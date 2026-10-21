@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_dim: int = 384
 
+    rerank_model: str = "cross-encoder/ms-marco-MiniLM-L6-v2"
+    context_char_budget: int = 16000
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",

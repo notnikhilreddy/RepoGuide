@@ -31,9 +31,7 @@ def parse_github_url(url: str) -> tuple[str, str]:
     parts = parsed.path.strip("/").split("/")
 
     if len(parts) != 2:
-        raise ValueError(
-            "Expected https://github.com/owner/repository"
-        )
+        raise ValueError("Expected https://github.com/owner/repository")
 
     owner, repo = parts
     repo = repo.removesuffix(".git")
@@ -59,10 +57,13 @@ def clone_repository(url: str):
 
         command = [
             "git",
-            "-c", "protocol.file.allow=never",
-            "-c", "protocol.ext.allow=never",
+            "-c",
+            "protocol.file.allow=never",
+            "-c",
+            "protocol.ext.allow=never",
             "clone",
-            "--depth", "1",
+            "--depth",
+            "1",
             "--single-branch",
             "--no-recurse-submodules",
             "--filter=blob:none",

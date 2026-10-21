@@ -20,12 +20,12 @@ def retrieve(
     question: str,
     top_k: int = 8,
 ) -> list[RetrievedChunk]:
-    if not 1 <= top_k <= 20:
-        raise ValueError("top_k must be between 1 and 20")
+    MAX_RETRIEVAL_CANDIDATES = 80
 
-    query_embedding = (
-        get_embedding_service().encode_query(question)
-    )
+    if not 1 <= top_k <= MAX_RETRIEVAL_CANDIDATES:
+        raise ValueError(f"top_k must be between 1 and {MAX_RETRIEVAL_CANDIDATES}")
+
+    query_embedding = get_embedding_service().encode_query(question)
 
     distance = Chunk.embedding.cosine_distance(query_embedding)
 

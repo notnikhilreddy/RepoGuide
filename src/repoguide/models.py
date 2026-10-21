@@ -16,15 +16,11 @@ def new_id() -> str:
 class Repository(Base):
     __tablename__ = "repositories"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=new_id
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
 
     url: Mapped[str] = mapped_column(Text, nullable=False)
     commit_sha: Mapped[str] = mapped_column(String(40), nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(30), nullable=False, default="indexing"
-    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="indexing")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -34,7 +30,8 @@ class Repository(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "url", "commit_sha",
+            "url",
+            "commit_sha",
             name="uq_repository_url_commit",
         ),
     )
@@ -43,9 +40,7 @@ class Repository(Base):
 class Chunk(Base):
     __tablename__ = "chunks"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=new_id
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
 
     repo_id: Mapped[str] = mapped_column(
         ForeignKey("repositories.id", ondelete="CASCADE"),
@@ -69,9 +64,7 @@ class Chunk(Base):
 class CodeSymbol(Base):
     __tablename__ = "code_symbols"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=new_id
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     repo_id: Mapped[str] = mapped_column(
         ForeignKey("repositories.id", ondelete="CASCADE"),
         index=True,
@@ -88,9 +81,7 @@ class CodeSymbol(Base):
 class CodeEdge(Base):
     __tablename__ = "code_edges"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=new_id
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     repo_id: Mapped[str] = mapped_column(
         ForeignKey("repositories.id", ondelete="CASCADE"),
         index=True,
@@ -111,9 +102,7 @@ class CodeEdge(Base):
 class RepoDependency(Base):
     __tablename__ = "repo_dependencies"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=new_id
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     repo_id: Mapped[str] = mapped_column(
         ForeignKey("repositories.id", ondelete="CASCADE"),
         index=True,

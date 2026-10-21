@@ -6,13 +6,24 @@ from pathlib import Path
 
 
 SKIP_DIRECTORIES = {
-    ".git", ".venv", "venv", "node_modules",
-    "dist", "build", "__pycache__", ".pytest_cache",
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "dist",
+    "build",
+    "__pycache__",
+    ".pytest_cache",
 }
 
 ALLOWED_SUFFIXES = {
-    ".py", ".md", ".rst",
-    ".js", ".jsx", ".ts", ".tsx",
+    ".py",
+    ".md",
+    ".rst",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
 }
 
 MAX_FILE_BYTES = 500_000
@@ -39,9 +50,9 @@ def collect_source_files(root: Path) -> list[Path]:
 
     for directory, dirs, filenames in os.walk(root, followlinks=False):
         dirs[:] = sorted(
-            d for d in dirs
-            if d not in SKIP_DIRECTORIES
-            and not (Path(directory) / d).is_symlink()
+            d
+            for d in dirs
+            if d not in SKIP_DIRECTORIES and not (Path(directory) / d).is_symlink()
         )
 
         for filename in sorted(filenames):
@@ -84,7 +95,7 @@ def split_lines(
     step = MAX_LINES_PER_CHUNK - OVERLAP_LINES
 
     for offset in range(0, len(lines), step):
-        window = lines[offset:offset + MAX_LINES_PER_CHUNK]
+        window = lines[offset : offset + MAX_LINES_PER_CHUNK]
 
         if not window:
             break
@@ -144,7 +155,8 @@ def parse_python_file(path: Path, root: Path) -> list[ParsedChunk]:
 
     nodes = sorted(
         (
-            node for node in ast.walk(tree)
+            node
+            for node in ast.walk(tree)
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         ),
         key=lambda node: node.lineno,
@@ -164,12 +176,10 @@ def parse_python_file(path: Path, root: Path) -> list[ParsedChunk]:
 
         # Include decorators in source lines when present.
         first_line = min(
-            [node.lineno] + [
-                decorator.lineno for decorator in node.decorator_list
-            ]
+            [node.lineno] + [decorator.lineno for decorator in node.decorator_list]
         )
 
-        symbol_lines = lines[first_line - 1:node.end_lineno]
+        symbol_lines = lines[first_line - 1 : node.end_lineno]
 
         chunks.extend(
             split_lines(
@@ -216,9 +226,7 @@ def parse_repository(root: Path) -> list[ParsedChunk]:
         if path.suffix.lower() == ".py":
             chunks.extend(parse_python_file(path, root))
 
-        elif path.suffix.lower() in {
-            ".md", ".rst", ".js", ".jsx", ".ts", ".tsx"
-        }:
+        elif path.suffix.lower() in {".md", ".rst", ".js", ".jsx", ".ts", ".tsx"}:
             chunks.extend(parse_text_file(path, root))
 
     return chunks

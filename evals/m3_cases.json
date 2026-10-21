@@ -1,0 +1,188 @@
+[
+  {
+    "question": "Where is the FastAPI application initialized?",
+    "expected_paths": [
+      "src/repoguide/main.py"
+    ]
+  },
+  {
+    "question": "How does the index endpoint call repository indexing?",
+    "expected_paths": [
+      "src/repoguide/main.py",
+      "src/repoguide/indexer.py"
+    ]
+  },
+  {
+    "question": "How does the ask endpoint reach generation?",
+    "expected_paths": [
+      "src/repoguide/main.py",
+      "src/repoguide/rag.py",
+      "src/repoguide/llm.py"
+    ]
+  },
+  {
+    "question": "Where are environment variables loaded and validated?",
+    "expected_paths": [
+      "src/repoguide/config.py"
+    ]
+  },
+  {
+    "question": "Where are database sessions created?",
+    "expected_paths": [
+      "src/repoguide/db.py"
+    ]
+  },
+  {
+    "question": "How is the pgvector embedding column defined?",
+    "expected_paths": [
+      "src/repoguide/models.py"
+    ]
+  },
+  {
+    "question": "Where are repository and chunk records declared?",
+    "expected_paths": [
+      "src/repoguide/models.py"
+    ]
+  },
+  {
+    "question": "Where is the git clone subprocess created?",
+    "expected_paths": [
+      "src/repoguide/git_utils.py"
+    ]
+  },
+  {
+    "question": "How are unsafe GitHub URLs rejected?",
+    "expected_paths": [
+      "src/repoguide/git_utils.py"
+    ]
+  },
+  {
+    "question": "How are Python methods extracted and chunked?",
+    "expected_paths": [
+      "src/repoguide/parser.py"
+    ]
+  },
+  {
+    "question": "Which code builds module-level text chunks?",
+    "expected_paths": [
+      "src/repoguide/parser.py"
+    ]
+  },
+  {
+    "question": "Where are code chunks embedded in batches?",
+    "expected_paths": [
+      "src/repoguide/indexer.py",
+      "src/repoguide/embeddings.py"
+    ]
+  },
+  {
+    "question": "How does the indexer persist graph edges?",
+    "expected_paths": [
+      "src/repoguide/indexer.py"
+    ]
+  },
+  {
+    "question": "Where does the indexer avoid duplicate commit indexing?",
+    "expected_paths": [
+      "src/repoguide/indexer.py"
+    ]
+  },
+  {
+    "question": "Where is the embedding model cached?",
+    "expected_paths": [
+      "src/repoguide/embeddings.py"
+    ]
+  },
+  {
+    "question": "Which function issues cosine distance queries?",
+    "expected_paths": [
+      "src/repoguide/retriever.py"
+    ]
+  },
+  {
+    "question": "How does graph retrieval expand callers to callees?",
+    "expected_paths": [
+      "src/repoguide/graph.py"
+    ]
+  },
+  {
+    "question": "Where are Tree-sitter grammars registered?",
+    "expected_paths": [
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "Where does symbol-level name resolution occur?",
+    "expected_paths": [
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "How does RepoGuide extract package dependencies?",
+    "expected_paths": [
+      "src/repoguide/intelligence.py"
+    ]
+  },
+  {
+    "question": "Where are graph inspection endpoints defined?",
+    "expected_paths": [
+      "src/repoguide/graph_api.py"
+    ]
+  },
+  {
+    "question": "Where is full-text keyword search implemented?",
+    "expected_paths": [
+      "src/repoguide/hybrid.py"
+    ]
+  },
+  {
+    "question": "How does reciprocal rank fusion combine candidate lists?",
+    "expected_paths": [
+      "src/repoguide/hybrid.py"
+    ]
+  },
+  {
+    "question": "Where are cross-encoder scores applied to search hits?",
+    "expected_paths": [
+      "src/repoguide/hybrid.py",
+      "src/repoguide/reranker.py"
+    ]
+  },
+  {
+    "question": "Which module prevents overlapping chunks from wasting context?",
+    "expected_paths": [
+      "src/repoguide/context.py"
+    ]
+  },
+  {
+    "question": "Where does the RAG pipeline enforce context size limits?",
+    "expected_paths": [
+      "src/repoguide/rag.py",
+      "src/repoguide/context.py"
+    ]
+  },
+  {
+    "question": "Where does the LLM receive evidence with citation labels?",
+    "expected_paths": [
+      "src/repoguide/rag.py"
+    ]
+  },
+  {
+    "question": "How are JavaScript and TypeScript symbols turned into vector chunks?",
+    "expected_paths": [
+      "src/repoguide/chunking.py"
+    ]
+  },
+  {
+    "question": "Where is retrieval performance measured?",
+    "expected_paths": [
+      "evals/benchmark_m3.py"
+    ]
+  },
+  {
+    "question": "Where are hallucination or citation checks performed?",
+    "expected_paths": [
+      "evals/evaluate_answers.py"
+    ]
+  }
+]

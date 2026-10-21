@@ -73,9 +73,7 @@ def get_repository(
     repo_id: str,
     session: SessionDep,
 ):
-    repo = session.scalar(
-        select(Repository).where(Repository.id == repo_id)
-    )
+    repo = session.scalar(select(Repository).where(Repository.id == repo_id))
 
     if repo is None:
         raise HTTPException(
@@ -100,9 +98,7 @@ def ask_repository(
     request: AskRequest,
     session: SessionDep,
 ):
-    repo = session.scalar(
-        select(Repository).where(Repository.id == repo_id)
-    )
+    repo = session.scalar(select(Repository).where(Repository.id == repo_id))
 
     if repo is None:
         raise HTTPException(

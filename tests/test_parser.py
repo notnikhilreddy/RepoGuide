@@ -35,10 +35,7 @@ def test_preserves_line_numbers(tmp_path: Path):
 
     chunks = parse_python_file(file, tmp_path)
 
-    function = next(
-        chunk for chunk in chunks
-        if chunk.symbol_name == "answer"
-    )
+    function = next(chunk for chunk in chunks if chunk.symbol_name == "answer")
 
     assert function.start_line == 3
     assert function.end_line == 4

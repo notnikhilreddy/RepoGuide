@@ -1,4 +1,5 @@
 """Conservative static analysis. Tree-sitter discovers syntax; it is not a type checker."""
+
 from __future__ import annotations
 
 import ast
@@ -23,14 +24,37 @@ GRAMMARS = {
     ".ts": Language(tree_sitter_typescript.language_typescript()),
     ".tsx": Language(tree_sitter_typescript.language_tsx()),
 }
-LANGUAGES = {".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript"}
+LANGUAGES = {
+    ".py": "python",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+}
 SYMBOL_TYPES = {
     "python": {"function_definition": "function", "class_definition": "class"},
-    "javascript": {"function_declaration": "function", "generator_function_declaration": "function", "class_declaration": "class", "method_definition": "method", "variable_declarator": "function"},
-    "typescript": {"function_declaration": "function", "generator_function_declaration": "function", "class_declaration": "class", "abstract_class_declaration": "class", "method_definition": "method", "method_signature": "method", "interface_declaration": "interface", "variable_declarator": "function"},
+    "javascript": {
+        "function_declaration": "function",
+        "generator_function_declaration": "function",
+        "class_declaration": "class",
+        "method_definition": "method",
+        "variable_declarator": "function",
+    },
+    "typescript": {
+        "function_declaration": "function",
+        "generator_function_declaration": "function",
+        "class_declaration": "class",
+        "abstract_class_declaration": "class",
+        "method_definition": "method",
+        "method_signature": "method",
+        "interface_declaration": "interface",
+        "variable_declarator": "function",
+    },
 }
 CALLEE_RE = re.compile(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$")
-JS_IMPORT_RE = re.compile(r"\bfrom\s*['\"]([^'\"]+)['\"]|\bimport\s*['\"]([^'\"]+)['\"]")
+JS_IMPORT_RE = re.compile(
+    r"\bfrom\s*['\"]([^'\"]+)['\"]|\bimport\s*['\"]([^'\"]+)['\"]"
+)
 
 
 @dataclass
@@ -76,7 +100,7 @@ def module_name(path: str) -> str:
 
 
 def source_text(node, raw: bytes) -> str:
-    return raw[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+    return raw[node.start_byte : node.end_byte].decode("utf-8", errors="replace")
 
 
 def symbol_key(path: str, qual: str, line: int) -> str:
@@ -85,10 +109,15 @@ def symbol_key(path: str, qual: str, line: int) -> str:
 
 def last_line(node) -> int:
     # end_point is exclusive; when it is at column zero, the last line is previous.
-    return max(node.start_point.row + 1, node.end_point.row + (1 if node.end_point.column else 0))
+    return max(
+        node.start_point.row + 1,
+        node.end_point.row + (1 if node.end_point.column else 0),
+    )
 
 
-def imports_for_python(source: str, path: str, module_key: str, result: Analysis, aliases: dict):
+def imports_for_python(
+    source: str, path: str, module_key: str, result: Analysis, aliases: dict
+):
     try:
         tree = ast.parse(source)
     except SyntaxError:
@@ -100,33 +129,53 @@ def imports_for_python(source: str, path: str, module_key: str, result: Analysis
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for entry in node.names:
-                aliases[(path, entry.asname or entry.name.split(".")[0])] = entry.name if entry.asname else entry.name.split(".")[0]
-                result.edges.append(EdgeDraft(module_key, "imports", entry.name, node.lineno))
+                aliases[(path, entry.asname or entry.name.split(".")[0])] = (
+                    entry.name if entry.asname else entry.name.split(".")[0]
+                )
+                result.edges.append(
+                    EdgeDraft(module_key, "imports", entry.name, node.lineno)
+                )
         elif isinstance(node, ast.ImportFrom):
             parents = package.split(".") if package else []
             if node.level:
-                parents = parents[:len(parents) - (node.level - 1)] if node.level <= len(parents) + 1 else []
+                parents = (
+                    parents[: len(parents) - (node.level - 1)]
+                    if node.level <= len(parents) + 1
+                    else []
+                )
                 prefix = ".".join(parents)
-                target_module = ".".join(part for part in (prefix, node.module or "") if part)
+                target_module = ".".join(
+                    part for part in (prefix, node.module or "") if part
+                )
             else:
                 target_module = node.module or ""
-            result.edges.append(EdgeDraft(module_key, "imports", target_module or ".", node.lineno))
+            result.edges.append(
+                EdgeDraft(module_key, "imports", target_module or ".", node.lineno)
+            )
             for entry in node.names:
                 if entry.name != "*":
-                    aliases[(path, entry.asname or entry.name)] = ".".join(x for x in (target_module, entry.name) if x)
+                    aliases[(path, entry.asname or entry.name)] = ".".join(
+                        x for x in (target_module, entry.name) if x
+                    )
 
 
 def resolve_js_path(current_path: str, spec: str, paths: set[str]) -> str | None:
     if not spec.startswith("."):
         return None
     base = posixpath.normpath(posixpath.join(posixpath.dirname(current_path), spec))
-    for candidate in [base, *(f"{base}{ext}" for ext in (".js", ".jsx", ".ts", ".tsx")), *(f"{base}/index{ext}" for ext in (".js", ".jsx", ".ts", ".tsx"))]:
+    for candidate in [
+        base,
+        *(f"{base}{ext}" for ext in (".js", ".jsx", ".ts", ".tsx")),
+        *(f"{base}/index{ext}" for ext in (".js", ".jsx", ".ts", ".tsx")),
+    ]:
         if candidate in paths:
             return candidate
     return None
 
 
-def scan_file(root: Path, path: Path, result: Analysis, aliases: dict, imported_js: dict):
+def scan_file(
+    root: Path, path: Path, result: Analysis, aliases: dict, imported_js: dict
+):
     rel = path.relative_to(root).as_posix()
     lang = LANGUAGES[path.suffix.lower()]
     raw = path.read_bytes()
@@ -138,7 +187,9 @@ def scan_file(root: Path, path: Path, result: Analysis, aliases: dict, imported_
     n_lines = max(len(source.splitlines()), 1)
     module = module_name(rel)
     module_key = symbol_key(rel, module, 1)
-    result.symbols.append(SymbolDraft(module_key, rel, lang, module, module, "module", 1, n_lines))
+    result.symbols.append(
+        SymbolDraft(module_key, rel, lang, module, module, "module", 1, n_lines)
+    )
 
     def walk(node, parent: SymbolDraft):
         kind = SYMBOL_TYPES[lang].get(node.type)
@@ -147,7 +198,11 @@ def scan_file(root: Path, path: Path, result: Analysis, aliases: dict, imported_
             # For JS/TS we index arrow functions bound to named variables.
             if node.type == "variable_declarator":
                 value = node.child_by_field_name("value")
-                if value is None or value.type not in {"arrow_function", "function_expression", "function"}:
+                if value is None or value.type not in {
+                    "arrow_function",
+                    "function_expression",
+                    "function",
+                }:
                     kind = None
             name_node = node.child_by_field_name("name") if kind else None
             if name_node is not None:
@@ -159,36 +214,57 @@ def scan_file(root: Path, path: Path, result: Analysis, aliases: dict, imported_
                         # Construct the lexical path inside the file, not including module.
                         parent_local = parent.qualified_name
                         if parent_local.startswith(module + "."):
-                            parent_local = parent_local[len(module) + 1:]
+                            parent_local = parent_local[len(module) + 1 :]
                         qual = f"{parent_local}.{name}"
                     if parent.kind == "class" and kind == "function":
                         kind = "method"
                     key = symbol_key(rel, qual, node.start_point.row + 1)
-                    current = SymbolDraft(key, rel, lang, name, qual, kind, node.start_point.row + 1, last_line(node))
+                    current = SymbolDraft(
+                        key,
+                        rel,
+                        lang,
+                        name,
+                        qual,
+                        kind,
+                        node.start_point.row + 1,
+                        last_line(node),
+                    )
                     result.symbols.append(current)
-                    result.edges.append(EdgeDraft(parent.key, "contains", qual, current.start_line, key))
+                    result.edges.append(
+                        EdgeDraft(parent.key, "contains", qual, current.start_line, key)
+                    )
 
         if node.type in ({"call"} if lang == "python" else {"call_expression"}):
             callee_node = node.child_by_field_name("function")
             if callee_node is not None:
                 target = source_text(callee_node, raw)
                 if len(target) <= 150 and CALLEE_RE.fullmatch(target):
-                    result.edges.append(EdgeDraft(current.key, "calls", target, node.start_point.row + 1))
+                    result.edges.append(
+                        EdgeDraft(
+                            current.key, "calls", target, node.start_point.row + 1
+                        )
+                    )
 
         if lang != "python" and node.type == "import_statement":
             statement = source_text(node, raw)
             match = JS_IMPORT_RE.search(statement)
             if match:
                 spec = match.group(1) or match.group(2)
-                result.edges.append(EdgeDraft(module_key, "imports", spec, node.start_point.row + 1))
+                result.edges.append(
+                    EdgeDraft(module_key, "imports", spec, node.start_point.row + 1)
+                )
                 # Parse a conservative subset of named imports and default imports.
-                before_from = statement.split(" from ")[0].removeprefix("import ").strip()
+                before_from = (
+                    statement.split(" from ")[0].removeprefix("import ").strip()
+                )
                 mapping = {}
                 braces = re.search(r"\{([^}]+)\}", before_from)
                 if braces:
                     for item in braces.group(1).split(","):
                         words = item.strip().split(" as ")
-                        if len(words) in (1, 2) and all(re.fullmatch(r"[\w$]+", w.strip()) for w in words):
+                        if len(words) in (1, 2) and all(
+                            re.fullmatch(r"[\w$]+", w.strip()) for w in words
+                        ):
                             mapping[words[-1].strip()] = words[0].strip()
                 else:
                     default = before_from.split(",")[0].strip()
@@ -244,7 +320,11 @@ def resolve_edges(result: Analysis, aliases: dict, imported_js: dict):
         target = None
         if callee.startswith(("self.", "cls.", "this.")) and caller.kind == "method":
             class_qual = caller.qualified_name.rpartition(".")[0]
-            target = only(by_file_name.get((caller.file_path, f"{class_qual}.{callee.split('.', 1)[1]}"), []))
+            target = only(
+                by_file_name.get(
+                    (caller.file_path, f"{class_qual}.{callee.split('.', 1)[1]}"), []
+                )
+            )
         if target is None:
             target = only(by_file_name.get((caller.file_path, callee), []))
         if target is None and caller.language == "python":
@@ -276,7 +356,11 @@ def dependencies_from_manifests(root: Path) -> list[DependencyDraft]:
     p = root / "pyproject.toml"
     if p.is_file() and not p.is_symlink() and p.stat().st_size < 500_000:
         doc = tomllib.loads(p.read_text(encoding="utf-8"))
-        for group, values in [("runtime", doc.get("project", {}).get("dependencies", [])), *doc.get("project", {}).get("optional-dependencies", {}).items(), *doc.get("dependency-groups", {}).items()]:
+        for group, values in [
+            ("runtime", doc.get("project", {}).get("dependencies", [])),
+            *doc.get("project", {}).get("optional-dependencies", {}).items(),
+            *doc.get("dependency-groups", {}).items(),
+        ]:
             for value in values:
                 name = re.split(r"[<=>~!;\[\s]", value, 1)[0]
                 if name:
@@ -292,7 +376,11 @@ def dependencies_from_manifests(root: Path) -> list[DependencyDraft]:
     p = root / "package.json"
     if p.is_file() and not p.is_symlink() and p.stat().st_size < 500_000:
         doc = json.loads(p.read_text(encoding="utf-8"))
-        for field, group in (("dependencies", "runtime"), ("devDependencies", "dev"), ("peerDependencies", "peer")):
+        for field, group in (
+            ("dependencies", "runtime"),
+            ("devDependencies", "dev"),
+            ("peerDependencies", "peer"),
+        ):
             for name, spec in doc.get(field, {}).items():
                 result.append(DependencyDraft(name, spec, "package.json", group))
     return result

@@ -16,7 +16,15 @@ class RepositoryResponse(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
     top_k: int = Field(default=8, ge=1, le=20)
-    retrieval_mode: Literal["dense", "graph"] = "graph"
+    retrieval_mode: Literal[
+        "dense",
+        "graph",
+        "keyword",
+        "hybrid",
+        "hybrid_rerank",
+        "hybrid_graph",
+        "hybrid_graph_rerank",
+    ] = "hybrid"
 
 
 class SourceResponse(BaseModel):
@@ -25,8 +33,11 @@ class SourceResponse(BaseModel):
     symbol_name: str | None
     start_line: int
     end_line: int
-    distance: float | None
-    origin: Literal["dense", "graph"]
+    distance: float | None = None
+    origin: str
+    channels: list[str] = Field(default_factory=list)
+    fusion_score: float | None = None
+    rerank_score: float | None = None
 
 
 class AskResponse(BaseModel):
