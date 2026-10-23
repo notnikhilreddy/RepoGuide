@@ -1,6 +1,7 @@
 """Budget- and overlap-aware evidence selection for repository RAG."""
 
 from __future__ import annotations
+from repoguide.telemetry import observed
 
 from dataclasses import dataclass
 
@@ -30,6 +31,8 @@ def _overlaps_most_of_candidate(
             return True
     return False
 
+
+@observed("retrieval.pack", "RETRIEVER" if "retrieval" in "retrieval.pack" else "CHAIN")
 
 def pack_context(
     hits: list[SearchHit],

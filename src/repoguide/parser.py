@@ -1,3 +1,4 @@
+from repoguide.telemetry import observed
 import ast
 import os
 
@@ -43,6 +44,8 @@ class ParsedChunk:
     end_line: int
     content: str
 
+
+@observed("index.list_files", "RETRIEVER" if "retrieval" in "index.list_files" else "CHAIN")
 
 def collect_source_files(root: Path) -> list[Path]:
     files = []
@@ -135,6 +138,8 @@ def qualified_name(node: ast.AST, parents: dict) -> str:
     return ".".join(reversed(names))
 
 
+@observed("index.parse_python", "RETRIEVER" if "retrieval" in "index.parse_python" else "CHAIN")
+
 def parse_python_file(path: Path, root: Path) -> list[ParsedChunk]:
     source = path.read_text(encoding="utf-8", errors="replace")
     lines = source.splitlines()
@@ -218,6 +223,8 @@ def parse_text_file(path: Path, root: Path) -> list[ParsedChunk]:
         start_line=1,
     )
 
+
+@observed("index.parse_repo", "RETRIEVER" if "retrieval" in "index.parse_repo" else "CHAIN")
 
 def parse_repository(root: Path) -> list[ParsedChunk]:
     chunks = []

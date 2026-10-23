@@ -1,0 +1,8 @@
+[
+  {"question":"How does indexing reach the database?","dependencies":["fastapi","sqlalchemy"],"sources":[{"file_path":"indexer.py","symbol_name":"index_repository"}],"docs_policy":"auto","expected_tools":[]},
+  {"question":"Should we migrate FastAPI startup to lifespan?","dependencies":["fastapi"],"sources":[{"file_path":"main.py"}],"docs_policy":"auto","expected_tools":["context7"]},
+  {"question":"Explain issue #35 on GitHub","dependencies":[],"sources":[{"file_path":"README.md"}],"docs_policy":"auto","expected_tools":["github"]},
+  {"question":"Explain upstream GitHub README and current FastAPI migration","dependencies":["fastapi"],"sources":[{"file_path":"README.md"}],"docs_policy":"auto","expected_tools":["context7","github"]},
+  {"question":"Latest FastAPI migration on GitHub","dependencies":["fastapi"],"sources":[],"docs_policy":"never","expected_tools":[]},
+  {"question":"How should I migrate dependencies?","dependencies":["fastapi","sqlalchemy"],"sources":[],"docs_policy":"auto","expected_tools":[]}
+]

@@ -1,3 +1,4 @@
+from repoguide.telemetry import observed
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -12,6 +13,8 @@ class RetrievedChunk:
     chunk: Chunk
     distance: float
 
+
+@observed("retrieval.vector", "RETRIEVER" if "retrieval" in "retrieval.vector" else "CHAIN")
 
 def retrieve(
     *,

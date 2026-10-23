@@ -23,7 +23,22 @@ class Settings(BaseSettings):
     embedding_dim: int = 384
 
     rerank_model: str = "cross-encoder/ms-marco-MiniLM-L6-v2"
-    context_char_budget: int = 16000
+    context_char_budget: int = 24000
+
+    redis_url: str = ""
+    context7_api_key: str = ""
+    github_personal_access_token: str = ""
+
+    mlflow_enabled: bool = True
+    mlflow_tracking_uri: str = "http://127.0.0.1:5000"
+    mlflow_experiment: str = "RepoGuide"
+    mlflow_capture_content: bool = False
+    mlflow_autolog: bool = False
+    router_provider: Literal["llm", "jev"] = "llm"
+    jev_api_key: str = ""
+    jev_endpoint: str = "https://api.typesafe.ai/v1/systemone"
+    jev_model: str = "jev-latest"
+    router_sufficiency_threshold: float = 0.75
 
     model_config = SettingsConfigDict(
         env_file=".env",

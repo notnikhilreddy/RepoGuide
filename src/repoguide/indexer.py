@@ -1,3 +1,4 @@
+from repoguide.telemetry import observed
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,8 @@ def text_for_embedding(chunk: ParsedChunk) -> str:
         f"Type: {chunk.kind}\n\n{chunk.content}"
     )
 
+
+@observed("index.repository", "RETRIEVER" if "retrieval" in "index.repository" else "CHAIN")
 
 def index_repository(url: str, session: Session, *, force: bool = False) -> Repository:
     with clone_repository(url) as clone:

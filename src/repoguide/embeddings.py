@@ -1,3 +1,4 @@
+from repoguide.telemetry import observed
 from functools import lru_cache
 
 from sentence_transformers import SentenceTransformer
@@ -9,12 +10,13 @@ class EmbeddingService:
     def __init__(self):
         self.model = SentenceTransformer(settings.embedding_model)
 
-        dimension = self.model.get_embedding_dimension()
+        dimension = self.model.get_sentence_embedding_dimension()
         if dimension != settings.embedding_dim:
             raise ValueError(
                 f"Expected {settings.embedding_dim} dimensions, got {dimension}"
             )
 
+    @observed("embedding.documents", "RETRIEVER" if "retrieval" in "embedding.documents" else "CHAIN")
     def encode_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
@@ -27,6 +29,7 @@ class EmbeddingService:
         )
         return vectors.tolist()
 
+    @observed("embedding.query", "RETRIEVER" if "retrieval" in "embedding.query" else "CHAIN")
     def encode_query(self, text: str) -> list[float]:
         vector = self.model.encode_query(
             text,

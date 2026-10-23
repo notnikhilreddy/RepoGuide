@@ -1,3 +1,4 @@
+from repoguide.telemetry import observed
 """Graph-aware retrieval while keeping a fixed evidence budget."""
 
 from dataclasses import dataclass
@@ -15,6 +16,8 @@ class Evidence:
     origin: str  # dense or graph
     distance: float | None
 
+
+@observed("retrieval.graph", "RETRIEVER" if "retrieval" in "retrieval.graph" else "CHAIN")
 
 def retrieve_with_graph(
     *,

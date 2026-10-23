@@ -1,0 +1,33 @@
+name: RepoGuide measured evaluation
+on:
+  workflow_dispatch:
+    inputs:
+      repo_id:
+        description: Previously indexed repository UUID (CI DB must contain it)
+        required: true
+      hit_threshold:
+        description: Measured Hit@8 gate (0..1)
+        required: true
+        default: '0.70'
+      mrr_threshold:
+        description: Measured MRR@8 gate (0..1)
+        required: true
+        default: '0.45'
+jobs:
+  evaluation:
+    runs-on: self-hosted  # Needs an indexed DB snapshot and model cache; never uses empty CI DB
+    env:
+      DATABASE_URL: ${{ secrets.REPOGUIDE_DATABASE_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      MLFLOW_CAPTURE_CONTENT: 'false'
+      MLFLOW_ENABLED: 'true'
+      ROUTER_PROVIDER: llm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --dev
+      - name: Generate deterministic retrieval metrics and MLflow run
+        run: uv run python evals/run_m6_mlflow.py '${{ inputs.repo_id }}' --dataset evals/m3_cases.json --limit 30
+      - name: Gate on results from this run
+        run: uv run python evals/ci_gate.py evals/m6_results.json --min-hit '${{ inputs.hit_threshold }}' --min-mrr '${{ inputs.mrr_threshold }}'

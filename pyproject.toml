@@ -13,11 +13,13 @@ dependencies = [
     "google-genai>=2.29.0",
     "httpx>=0.28.1",
     "langgraph>=1,<2",
+    "mlflow>=3.17,<4",
     "mcp>=2,<3",
     "openai>=3.35.1",
     "pgvector>=0.5.0",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.15.0",
+    "redis>=8.1.0",
     "sentence-transformers>=6.1.0",
     "sqlalchemy>=2.1.4",
     "tree-sitter==0.25.2",
@@ -27,9 +29,6 @@ dependencies = [
     "uvicorn[standard]>=0.54.0",
 ]
 
-[project.scripts]
-repoguide = "repoguide:main"
-
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]
 build-backend = "uv_build"
@@ -38,6 +37,7 @@ build-backend = "uv_build"
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.1.1",
+    "psutil>=6.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.16.10",
 ]

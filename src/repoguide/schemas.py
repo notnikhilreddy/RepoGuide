@@ -52,6 +52,9 @@ class DocumentationSource(BaseModel):
 
 class AskResponse(BaseModel):
     answer: str
+    trace_id: str | None = None
+    status: str = "answered"
+    cached: bool = False
     sources: list[SourceResponse]
     docs_sources: list[DocumentationSource] = Field(default_factory=list)
     trace: list[str] = Field(default_factory=list)

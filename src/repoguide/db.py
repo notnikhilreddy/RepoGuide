@@ -9,6 +9,9 @@ engine = create_engine(
     pool_pre_ping=True,
 )
 
+from repoguide.sql_observability import instrument_engine
+instrument_engine(engine)
+
 SessionLocal = sessionmaker(
     bind=engine,
     autoflush=False,

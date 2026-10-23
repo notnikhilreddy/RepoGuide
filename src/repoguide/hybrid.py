@@ -4,6 +4,7 @@ Maintains Milestone 1/2 retrieval APIs and requires no external search service.
 """
 
 from __future__ import annotations
+from repoguide.telemetry import observed
 
 from dataclasses import dataclass
 import re
@@ -117,6 +118,8 @@ def lexical_terms(question: str) -> str:
     return " | ".join(unique[:12])
 
 
+@observed("retrieval.keyword", "RETRIEVER" if "retrieval" in "retrieval.keyword" else "CHAIN")
+
 def keyword_retrieve(
     *,
     session: Session,
@@ -150,6 +153,8 @@ def keyword_retrieve(
         if chunk_id in by_id
     ]
 
+
+@observed("retrieval.rrf", "RETRIEVER" if "retrieval" in "retrieval.rrf" else "CHAIN")
 
 def rrf_fuse(
     rankings: list[tuple[str, list[SearchHit]]],
@@ -202,6 +207,8 @@ def rrf_fuse(
     ]
 
 
+@observed("retrieval.rerank", "RETRIEVER" if "retrieval" in "retrieval.rerank" else "CHAIN")
+
 def rerank_hits(question: str, hits: list[SearchHit]) -> list[SearchHit]:
     """Cross-encoder reranking only for candidates already retrieved."""
     if not hits:
@@ -226,6 +233,8 @@ def rerank_hits(question: str, hits: list[SearchHit]) -> list[SearchHit]:
         key=lambda hit: (-(hit.rerank_score or 0.0), -(hit.fusion_score or 0.0)),
     )
 
+
+@observed("retrieval.search", "RETRIEVER" if "retrieval" in "retrieval.search" else "CHAIN")
 
 def search(
     *,

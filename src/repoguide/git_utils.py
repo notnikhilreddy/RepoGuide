@@ -1,3 +1,4 @@
+from repoguide.telemetry import span, record
 import re
 import subprocess
 import tempfile
@@ -72,8 +73,9 @@ def clone_repository(url: str):
         ]
 
         try:
-            subprocess.run(
-                command,
+            with span("git.clone", "TOOL", {"owner": owner, "repo": repo, "depth": 1}) as trace_span:
+                subprocess.run(
+                    command,
                 check=True,
                 capture_output=True,
                 text=True,

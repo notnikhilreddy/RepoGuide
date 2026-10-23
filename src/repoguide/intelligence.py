@@ -1,6 +1,7 @@
 """Conservative static analysis. Tree-sitter discovers syntax; it is not a type checker."""
 
 from __future__ import annotations
+from repoguide.telemetry import observed
 
 import ast
 import json
@@ -385,6 +386,8 @@ def dependencies_from_manifests(root: Path) -> list[DependencyDraft]:
                 result.append(DependencyDraft(name, spec, "package.json", group))
     return result
 
+
+@observed("index.analyze_symbols", "RETRIEVER" if "retrieval" in "index.analyze_symbols" else "CHAIN")
 
 def analyze_repository(root: Path) -> Analysis:
     result = Analysis()
