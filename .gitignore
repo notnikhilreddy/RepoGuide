@@ -11,3 +11,10 @@ mlflow.db
 mlruns/
 mlartifacts/
 *.log
+
+# RepoGuide frontend / local evaluation outputs
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/.vite/
+evals/m7_latest_results.json

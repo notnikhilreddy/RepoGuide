@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from repoguide.api import router as answer_router
+from repoguide.ui_api import router as ui_router
 from repoguide.db import get_db
 from repoguide.git_utils import parse_github_url
 from repoguide.graph_api import router as graph_router
@@ -16,6 +17,7 @@ from repoguide.telemetry import span, record, setup_mlflow
 app=FastAPI(title='RepoGuide API',description='Versioned, evidence-grounded repository assistant',version='0.6.0')
 app.include_router(graph_router)
 app.include_router(answer_router)
+app.include_router(ui_router)
 SessionDep=Annotated[Session,Depends(get_db)]
 
 @app.on_event('startup')

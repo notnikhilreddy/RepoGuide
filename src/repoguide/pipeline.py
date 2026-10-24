@@ -13,7 +13,7 @@ from repoguide.answers import AnswerResult, abstain, parse_draft, prompt_for_evi
 from repoguide.cache import load_result, result_key, save_result
 from repoguide.provider import complete, identity, stream
 from repoguide.telemetry import feedback, record, span
-from repoguide.workflow import gather_evidence
+from repoguide.workflow import gather_evidence, graph
 
 
 class InvalidGeneration(ValueError):
@@ -51,6 +51,27 @@ def _gather(repo_id, question, top_k, docs_policy, retrieval_mode):
         data=gather_evidence(repo_id=repo_id,question=question,top_k=top_k,docs_policy=docs_policy,retrieval_mode=retrieval_mode)
         record(sp, {'trace':data.get('trace',[]),'files':[x['file_path'] for x in data.get('sources',[])]}, external_count=len(data.get('external_evidence',[])))
         return data
+
+
+def _gather_events(repo_id, question, top_k, docs_policy, retrieval_mode):
+    """Yield actual completed LangGraph nodes for streaming UI progress.
+
+    The routing update is emitted *before* the external tool node executes,
+    allowing the UI to show a truthful MCP activity indicator.
+    """
+    state = {'repo_id':repo_id,'question':question,'top_k':top_k,
+             'docs_policy':docs_policy,'retrieval_mode':retrieval_mode,'trace':[]}
+    with span('agent.evidence_graph', 'AGENT', {'repo_id':repo_id,'question':question,
+               'top_k':top_k,'docs_policy':docs_policy,'retrieval_mode':retrieval_mode}) as sp:
+        for update in graph().stream(state, stream_mode='updates'):
+            for name, delta in update.items():
+                if isinstance(delta,dict):
+                    state.update(delta)
+                    yield name, state
+        record(sp,{'trace':state.get('trace',[]),
+                   'files':[x['file_path'] for x in state.get('sources',[])]},
+                   external_count=len(state.get('external_evidence',[])))
+
 
 
 def answer(*,repo_id:str,question:str,top_k:int=8,docs_policy:str='auto',retrieval_mode:str='hybrid',answer_depth:str='auto',tenant:str='local') -> AnswerResult:
@@ -106,7 +127,20 @@ def stream_answer(*, repo_id:str,question:str,top_k:int=8,docs_policy:str='auto'
     try:
         with span('repoguide.ask.stream','CHAIN',{'repo_id':repo_id,'question':question,'depth':depth}) as root:
             yield _event('status',{'step':'retrieving'})
-            state=_gather(repo_id,question,top_k,docs_policy,retrieval_mode)
+            state={}
+            for node_name, current in _gather_events(repo_id,question,top_k,docs_policy,retrieval_mode):
+                state=current
+                if node_name=='retrieve':
+                    yield _event('status',{'step':'retrieval_complete','sources':len(state.get('sources',[]))})
+                elif node_name=='metadata':
+                    yield _event('status',{'step':'dependencies_detected','count':len(state.get('dependencies',[]))})
+                elif node_name=='route':
+                    tools=state.get('routing',{}).get('tools',[])
+                    yield _event('status',{'step':'external_lookup' if tools else 'local_evidence_sufficient',
+                                           'tools':tools})
+                elif node_name=='external':
+                    yield _event('status',{'step':'external_complete',
+                                           'count':len(state.get('external_evidence',[]))})
             if not state.get('sources') and not state.get('external_evidence'):
                 final=abstain(state,'No usable evidence')
             else:

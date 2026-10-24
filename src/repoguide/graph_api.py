@@ -64,6 +64,8 @@ def get_graph(repo_id: str, limit: int = Query(500, ge=1, le=2000)):
                     "file_path": s.file_path,
                     "kind": s.kind,
                     "language": s.language,
+                    "start_line": s.start_line,
+                    "end_line": s.end_line,
                 }
                 for s in nodes
             ],
