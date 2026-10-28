@@ -1,0 +1,33 @@
+name: M8 Infrastructure and backend checks
+on:
+  pull_request:
+    paths:
+      - 'infra/terraform/**'
+      - 'src/repoguide/cloud_*.py'
+      - 'src/repoguide/ui_api.py'
+      - 'docker/**'
+      - 'tests/test_m8_cloud_pure.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+        working-directory: infra/terraform
+      - run: terraform init -backend=false
+        working-directory: infra/terraform
+      - run: terraform validate
+        working-directory: infra/terraform
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --dev --frozen
+      - run: uv run pytest -q tests/test_m8_cloud_pure.py

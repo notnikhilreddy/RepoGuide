@@ -1,0 +1,12 @@
+output "api_url" { value = aws_apigatewayv2_api.http.api_endpoint }
+output "user_pool_id" { value = aws_cognito_user_pool.demo.id }
+output "cognito_client_id" { value = aws_cognito_user_pool_client.spa.id }
+output "cognito_issuer" { value = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.demo.id}" }
+output "cognito_domain" { value = "https://${aws_cognito_user_pool_domain.demo.domain}.auth.${var.aws_region}.amazoncognito.com" }
+output "ecr_api" { value = aws_ecr_repository.api.repository_url }
+output "ecr_worker" { value = aws_ecr_repository.worker.repository_url }
+output "job_table" { value = aws_dynamodb_table.jobs.name }
+output "sqs_url" { value = aws_sqs_queue.index.id }
+output "ecs_cluster" { value = aws_ecs_cluster.main.name }
+output "ecs_service" { value = aws_ecs_service.worker.name }
+output "artifact_bucket" { value = aws_s3_bucket.artifacts.bucket }

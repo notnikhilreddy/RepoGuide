@@ -3,6 +3,7 @@ import { Activity, ArrowRight, BookOpenText, Braces, ChartNoAxesColumnIncreasing
   Command, Database, GitBranch, Github, LayoutDashboard, Menu, Moon, Plus, Search, Sun, TerminalSquare,
   X, Layers3, LoaderCircle } from 'lucide-react';
 import { api } from './lib/api';
+import {authEnabled,authManager} from './lib/auth';
 import type { Repo, RepoFile } from './lib/types';
 import { Dialog, Empty, ErrorPanel, Status } from './components/Shared';
 import { OverviewView } from './components/OverviewView';
@@ -81,7 +82,7 @@ export default function App(){
       </nav>
       <div className="sidebar-spacer"/>
       <button className="command-shortcut" onClick={()=>{setCommand(true);setCommandFilter('')}}><Search size={16}/><span>Quick search</span><kbd>⌘ K</kbd></button>
-      <div className="side-footer"><span className="live-dot"/> <span>Local workspace</span><small>v0.7.0</small></div>
+      <div className="side-footer"><span className="live-dot"/> <span>{import.meta.env.VITE_API_BASE_URL ? "Cloud workspace" : "Local workspace"}</span><small>v0.7.0</small></div>
     </aside>
     <div className="main-shell">
       <header className="topbar">
@@ -90,7 +91,8 @@ export default function App(){
         <div className="topbar-actions">
           {repo&&<div className="commit-chip" title={repo.commit_sha}><GitBranch size={13}/>{repo.commit_sha.slice(0,7)}</div>}
           <button className="icon-btn" title="Toggle theme" onClick={()=>setTheme(t=>t==='dark'?'light':'dark')}>{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button>
-          <a className="icon-btn" href="http://127.0.0.1:5000" target="_blank" rel="noreferrer" title="Open local MLflow"><Database size={17}/></a>
+          <a className="icon-btn" href={import.meta.env.VITE_MLFLOW_URL || "http://127.0.0.1:5000"} target="_blank" rel="noreferrer" title="Open local MLflow"><Database size={17}/></a>
+          {authEnabled&&<button className="icon-btn" title="Sign out" onClick={()=>void authManager?.signoutRedirect()}><span style={{fontSize:11}}>Sign out</span></button>}
         </div>
       </header>
       {repoError&&<div className="api-banner"><ErrorPanel message={`Backend connection: ${repoError}`} retry={()=>void refreshRepos()}/></div>}

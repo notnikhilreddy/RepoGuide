@@ -7,6 +7,10 @@ from repoguide.config import settings
 engine = create_engine(
     settings.database_url,
     pool_pre_ping=True,
+    pool_size=2,
+    max_overflow=1,
+    pool_timeout=10,
+    pool_recycle=300,
 )
 
 from repoguide.sql_observability import instrument_engine

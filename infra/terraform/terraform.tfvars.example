@@ -1,0 +1,10 @@
+aws_region = "us-east-1"
+project = "repoguide-demo"
+alert_email = "you@example.com"
+frontend_origin = "https://YOUR-VERCEL-DOMAIN.vercel.app"
+ssm_parameter_name = "/repoguide/demo/runtime"
+# Build and push images to ECR first; then set these to the immutable tags/digests.
+api_image_uri = "123456789012.dkr.ecr.us-east-1.amazonaws.com/repoguide-demo/api:YOUR_SHA"
+worker_image_uri = "123456789012.dkr.ecr.us-east-1.amazonaws.com/repoguide-demo/worker:YOUR_SHA"
+# Optional CI federation role (exact OIDC sub claim, NOT a wildcard)
+github_oidc_subject = ""

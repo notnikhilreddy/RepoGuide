@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     context7_api_key: str = ""
     github_personal_access_token: str = ""
 
-    mlflow_enabled: bool = True
+    mlflow_enabled: bool = False  # enable with an accessible remote MLflow tracking server
     mlflow_tracking_uri: str = "http://127.0.0.1:5000"
     mlflow_experiment: str = "RepoGuide"
     mlflow_capture_content: bool = False

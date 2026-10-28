@@ -1,6 +1,6 @@
 """RepoGuide API: one unified RAG/agent execution path, two response forms."""
 from typing import Annotated
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from repoguide.api import router as answer_router
@@ -19,6 +19,39 @@ app.include_router(graph_router)
 app.include_router(answer_router)
 app.include_router(ui_router)
 SessionDep=Annotated[Session,Depends(get_db)]
+
+@app.middleware('http')
+async def cloud_metrics(request: Request, call_next):
+    import time
+    from repoguide.cloud_observability import emit_request
+    start=time.monotonic()
+    try:
+        response=await call_next(request)
+        emit_request(request.method,request.url.path,response.status_code,(time.monotonic()-start)*1000)
+        return response
+    except Exception:
+        emit_request(request.method,request.url.path,500,(time.monotonic()-start)*1000)
+        raise
+
+@app.middleware('http')
+async def cloud_request_protection(request: Request, call_next):
+    import os
+    if os.getenv('REPOGUIDE_CLOUD_MODE','').lower() == 'true':
+        # The JWT signature and audience are enforced by the API Gateway authorizer.
+        # Browser-controlled headers must NEVER substitute for gateway claims.
+        if request.url.path == '/repositories/index':
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=403, content={'detail': 'Use durable index jobs'})
+        if request.method == 'POST' and (
+            '/ask' in request.url.path or request.url.path == '/feedback'
+        ):
+            from repoguide.cloud_guard import enforce_request_budget
+            from fastapi.responses import JSONResponse
+            try:
+                enforce_request_budget(request)
+            except HTTPException as exc:
+                return JSONResponse(status_code=exc.status_code, content={'detail':exc.detail})
+    return await call_next(request)
 
 @app.on_event('startup')
 def init_telemetry():

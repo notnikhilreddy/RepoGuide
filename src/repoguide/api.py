@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Literal
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -42,11 +42,17 @@ def ask_robust(repo_id:str,request:Query):
 
 @router.post('/repositories/{repo_id}/ask/stream')
 def ask_stream(repo_id:str,request:Query):
+    import os
+    if os.getenv('REPOGUIDE_CLOUD_MODE','').lower() == 'true':
+        raise HTTPException(501,'Progressive SSE requires a streaming-capable AWS integration; use /ask/robust')
     check_repo(repo_id)
     return StreamingResponse(stream_answer(repo_id=repo_id,**request.model_dump()),media_type='text/event-stream',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
 
 @router.post('/feedback')
-def submit_feedback(request:FeedbackRequest):
+def submit_feedback(request:FeedbackRequest, http_request:Request):
+    import os
+    if os.getenv('REPOGUIDE_CLOUD_MODE', '').lower() == 'true':
+        raise HTTPException(403, 'Feedback disabled in hosted demo until trace ownership and remote MLflow are configured')
     # Local single-user development endpoint. Require authentication + trace
     # ownership checks before exposing to untrusted users in production.
     with span('feedback.submit','TOOL',request.model_dump(exclude={'comment'})) as sp:

@@ -11,6 +11,7 @@ mlflow.db
 mlruns/
 mlartifacts/
 *.log
+.repoguide_patch_backup_*
 
 # RepoGuide frontend / local evaluation outputs
 frontend/node_modules/
@@ -18,3 +19,13 @@ frontend/dist/
 frontend/*.tsbuildinfo
 frontend/.vite/
 evals/m7_latest_results.json
+
+# M8 Terraform and local cloud settings
+infra/terraform/.terraform/
+infra/terraform/*.tfstate*
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfvars
+frontend/.env.production
+
+.env.*
+!frontend/.env.production.example

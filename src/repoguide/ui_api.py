@@ -117,7 +117,8 @@ REPORTS=('m3_results.json','m5_live_results.json','m6_results.json','m7_latest_r
 
 
 def _eval_root():
-    return Path(__file__).resolve().parents[2] / 'evals'
+    import os
+    return Path(os.getenv('REPOGUIDE_EVAL_ROOT', str(Path(__file__).resolve().parents[2] / 'evals')))
 
 
 @router.get('/evaluations')
@@ -159,6 +160,14 @@ class NewIndex(BaseModel):
 
 @router.post('/index-jobs',status_code=202)
 def create_index(request:Request,payload:NewIndex):
+    if __import__('os').getenv('REPOGUIDE_CLOUD_MODE', '').lower() == 'true':
+        from repoguide.cloud_guard import require_admin, claims
+        from repoguide.cloud_jobs import enqueue_index
+        require_admin(request)
+        try:
+            return enqueue_index(str(payload.url), payload.force, owner_sub=claims(request).get('sub', ''))
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(503, str(exc)) from exc
     _local_only(request)
     from repoguide.git_utils import parse_github_url
     try:parse_github_url(str(payload.url))
@@ -167,8 +176,13 @@ def create_index(request:Request,payload:NewIndex):
 
 
 @router.get('/jobs/{job_id}')
-def job_status(job_id:str):
-    item=public_job(job_id)
+def job_status(request:Request,job_id:str):
+    if __import__('os').getenv('REPOGUIDE_CLOUD_MODE', '').lower() == 'true':
+        from repoguide.cloud_jobs import get_job
+        from repoguide.cloud_guard import claims
+        item=get_job(job_id, owner_sub=claims(request).get('sub', ''))
+    else:
+        item=public_job(job_id)
     if item is None:raise HTTPException(404,'Unknown or expired job')
     return item
 
@@ -181,6 +195,8 @@ class NewEvaluation(BaseModel):
 
 @router.post('/evaluation-jobs',status_code=202)
 def create_eval(request:Request,payload:NewEvaluation):
+    if __import__('os').getenv('REPOGUIDE_CLOUD_MODE','').lower() == 'true':
+        raise HTTPException(403, 'Online evaluations disabled in hosted demo; use CI')
     _local_only(request)
     if payload.dataset not in DATASETS:raise HTTPException(422,'Unknown dataset')
     p=_eval_root()/payload.dataset
@@ -188,3 +204,30 @@ def create_eval(request:Request,payload:NewEvaluation):
     with SessionLocal() as db:
         if _repo(db,payload.repo_id).status!='indexed':raise HTTPException(409,'Repository not indexed')
     return begin_evaluation(payload.repo_id,p,payload.limit)
+
+
+@router.get('/worker-control')
+def inspect_workers(request: Request):
+    if __import__('os').getenv('REPOGUIDE_CLOUD_MODE', '').lower() != 'true':
+        return {'paused': False, 'desired': 0, 'running': 0, 'queued': 0, 'inflight': 0, 'local': True}
+    from repoguide.cloud_guard import require_admin
+    require_admin(request)
+    from repoguide.cloud_jobs import worker_status
+    return worker_status()
+
+
+class WorkerAction(BaseModel):
+    action: str = Field(pattern='^(wake|sleep)$')
+
+
+@router.post('/worker-control')
+def change_workers(request: Request, payload: WorkerAction):
+    from repoguide.cloud_guard import require_admin
+    require_admin(request)
+    if __import__('os').getenv('REPOGUIDE_CLOUD_MODE', '').lower() != 'true':
+        raise HTTPException(409, 'Cloud control is not enabled in local development')
+    from repoguide.cloud_jobs import control_worker
+    try:
+        return control_worker(payload.action)
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
