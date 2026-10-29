@@ -1,53 +1,53 @@
 resource "aws_sns_topic" "alerts" { name = "${local.name}-alerts" }
 resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.alerts.arn
-  protocol = "email"
-  endpoint = var.alert_email
+  protocol  = "email"
+  endpoint  = var.alert_email
 }
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
-  alarm_name = "${local.name}-api-errors"
+  alarm_name          = "${local.name}-api-errors"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods = 1
-  metric_name = "Errors"
-  namespace = "AWS/Lambda"
-  period = 300
-  statistic = "Sum"
-  threshold = 2
-  treat_missing_data = "notBreaching"
-  dimensions = { FunctionName = aws_lambda_function.api.function_name }
-  alarm_actions = [aws_sns_topic.alerts.arn]
+  evaluation_periods  = 1
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 2
+  treat_missing_data  = "notBreaching"
+  dimensions          = { FunctionName = aws_lambda_function.api.function_name }
+  alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 resource "aws_cloudwatch_metric_alarm" "dlq" {
-  alarm_name = "${local.name}-dead-letter-messages"
+  alarm_name          = "${local.name}-dead-letter-messages"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods = 1
-  metric_name = "ApproximateNumberOfMessagesVisible"
-  namespace = "AWS/SQS"
-  period = 300
-  statistic = "Maximum"
-  threshold = 0
-  treat_missing_data = "notBreaching"
-  dimensions = { QueueName = aws_sqs_queue.deadletter.name }
-  alarm_actions = [aws_sns_topic.alerts.arn]
+  evaluation_periods  = 1
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = 300
+  statistic           = "Maximum"
+  threshold           = 0
+  treat_missing_data  = "notBreaching"
+  dimensions          = { QueueName = aws_sqs_queue.deadletter.name }
+  alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 resource "aws_budgets_budget" "small_budget" {
-  name = "${local.name}-budget"
-  budget_type = "COST"
+  name         = "${local.name}-budget"
+  budget_type  = "COST"
   limit_amount = "15"
-  limit_unit = "USD"
-  time_unit = "MONTHLY"
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
   notification {
-    comparison_operator = "GREATER_THAN"
-    threshold = 50
-    threshold_type = "PERCENTAGE"
-    notification_type = "ACTUAL"
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 50
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
     subscriber_email_addresses = [var.alert_email]
   }
   notification {
-    comparison_operator = "GREATER_THAN"
-    threshold = 90
-    threshold_type = "PERCENTAGE"
-    notification_type = "FORECASTED"
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 90
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
     subscriber_email_addresses = [var.alert_email]
   }
 }

@@ -12,6 +12,8 @@ mlruns/
 mlartifacts/
 *.log
 .repoguide_patch_backup_*
+.env.deploy
+.env.deploy.additions
 
 # RepoGuide frontend / local evaluation outputs
 frontend/node_modules/
@@ -25,6 +27,7 @@ infra/terraform/.terraform/
 infra/terraform/*.tfstate*
 infra/terraform/.terraform.lock.hcl
 infra/terraform/terraform.tfvars
+infra/terraform/.terraform_syntax_backup*
 frontend/.env.production
 
 .env.*
