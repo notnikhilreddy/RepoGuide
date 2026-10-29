@@ -1,7 +1,3 @@
-[0m[1mdata.aws_availability_zones.available: Reading...[0m[0m
-[0m[1mdata.aws_caller_identity.current: Reading...[0m[0m
-[0m[1mdata.aws_caller_identity.current: Read complete after 0s [id=685611647723][0m
-[0m[1mdata.aws_availability_zones.available: Read complete after 0s [id=us-east-2][0m
 
 Terraform used the selected providers to generate the following execution
 plan. Resource actions are indicated with the following symbols:
@@ -449,40 +445,6 @@ Terraform will perform the following actions:
       [32m+[0m[0m warm_throughput (known after apply)
     }
 
-[1m  # aws_ecr_repository.api[0m will be created
-[0m  [32m+[0m[0m resource "aws_ecr_repository" "api" {
-      [32m+[0m[0m arn                  = (known after apply)
-      [32m+[0m[0m force_delete         = false
-      [32m+[0m[0m id                   = (known after apply)
-      [32m+[0m[0m image_tag_mutability = "IMMUTABLE"
-      [32m+[0m[0m name                 = "repoguide-demo/api"
-      [32m+[0m[0m region               = "us-east-2"
-      [32m+[0m[0m registry_id          = (known after apply)
-      [32m+[0m[0m repository_url       = (known after apply)
-      [32m+[0m[0m tags_all             = (known after apply)
-
-      [32m+[0m[0m image_scanning_configuration {
-          [32m+[0m[0m scan_on_push = true
-        }
-    }
-
-[1m  # aws_ecr_repository.worker[0m will be created
-[0m  [32m+[0m[0m resource "aws_ecr_repository" "worker" {
-      [32m+[0m[0m arn                  = (known after apply)
-      [32m+[0m[0m force_delete         = false
-      [32m+[0m[0m id                   = (known after apply)
-      [32m+[0m[0m image_tag_mutability = "IMMUTABLE"
-      [32m+[0m[0m name                 = "repoguide-demo/worker"
-      [32m+[0m[0m region               = "us-east-2"
-      [32m+[0m[0m registry_id          = (known after apply)
-      [32m+[0m[0m repository_url       = (known after apply)
-      [32m+[0m[0m tags_all             = (known after apply)
-
-      [32m+[0m[0m image_scanning_configuration {
-          [32m+[0m[0m scan_on_push = true
-        }
-    }
-
 [1m  # aws_ecs_cluster.main[0m will be created
 [0m  [32m+[0m[0m resource "aws_ecs_cluster" "main" {
       [32m+[0m[0m arn      = (known after apply)
@@ -749,7 +711,7 @@ Terraform will perform the following actions:
       [32m+[0m[0m code_sha256                    = (known after apply)
       [32m+[0m[0m function_name                  = (known after apply)
       [32m+[0m[0m id                             = (known after apply)
-      [32m+[0m[0m image_uri                      = "123456789012.dkr.ecr.us-east-1.amazonaws.com/repoguide-demo/api:YOUR_SHA"
+      [32m+[0m[0m image_uri                      = "685611647723.dkr.ecr.us-east-2.amazonaws.com/repoguide-demo/api:6681249bbc15"
       [32m+[0m[0m invoke_arn                     = (known after apply)
       [32m+[0m[0m last_modified                  = (known after apply)
       [32m+[0m[0m memory_size                    = 2048
@@ -792,7 +754,7 @@ Terraform will perform the following actions:
       [32m+[0m[0m code_sha256                    = (known after apply)
       [32m+[0m[0m function_name                  = (known after apply)
       [32m+[0m[0m id                             = (known after apply)
-      [32m+[0m[0m image_uri                      = "123456789012.dkr.ecr.us-east-1.amazonaws.com/repoguide-demo/api:YOUR_SHA"
+      [32m+[0m[0m image_uri                      = "685611647723.dkr.ecr.us-east-2.amazonaws.com/repoguide-demo/api:6681249bbc15"
       [32m+[0m[0m invoke_arn                     = (known after apply)
       [32m+[0m[0m last_modified                  = (known after apply)
       [32m+[0m[0m memory_size                    = 256
@@ -1206,7 +1168,7 @@ Terraform will perform the following actions:
       [32m+[0m[0m id          = (known after apply)
     }
 
-[1mPlan:[0m [0m56 to add, 0 to change, 0 to destroy.
+[1mPlan:[0m [0m54 to add, 0 to change, 0 to destroy.
 
 Changes to Outputs:
   [32m+[0m[0m api_url             = (known after apply)
@@ -1214,15 +1176,8 @@ Changes to Outputs:
   [32m+[0m[0m cognito_client_id   = (known after apply)
   [32m+[0m[0m cognito_domain      = (known after apply)
   [32m+[0m[0m cognito_issuer      = (known after apply)
-  [32m+[0m[0m ecr_api             = (known after apply)
-  [32m+[0m[0m ecr_worker          = (known after apply)
   [32m+[0m[0m ecs_cluster         = (known after apply)
   [32m+[0m[0m ecs_service         = (known after apply)
   [32m+[0m[0m job_table           = (known after apply)
   [32m+[0m[0m sqs_url             = (known after apply)
   [32m+[0m[0m user_pool_id        = (known after apply)
-[90m
-─────────────────────────────────────────────────────────────────────────────[0m
-
-Note: You didn't use the -out option to save this plan, so Terraform can't
-guarantee to take exactly these actions if you run "terraform apply" now.
