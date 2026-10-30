@@ -16,7 +16,7 @@ The visual direction is functional, restrained engineering tooling: dark slate s
 6. `uv run uvicorn repoguide.main:app --reload --host 127.0.0.1` (backend 8000).
 7. `cd frontend && npm install && npm run dev` (frontend 5173).
 8. Open `http://127.0.0.1:5173`.
-9. `npm run typecheck`, `npm run build`, `npm test` inside frontend; `uv run pytest tests/test_m7_jobs.py -v` from root.
+9. `npm run typecheck`, `npm run build`, `npm test` inside frontend; `uv run pytest tests/test_ui_jobs.py -v` from root.
 
 If `npm install` fails, retry when the registry is reachable. There is no lockfile in the patch because package downloads were unavailable in the build environment. Commit the generated `frontend/package-lock.json` after installing to make deployment reproducible.
 

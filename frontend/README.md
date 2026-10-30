@@ -4,7 +4,7 @@ Professional local engineering workbench for your existing Python RepoGuide API.
 
 ## Quick start
 
-Requirements: Node.js 20.19+ or 22.12+, npm, existing RepoGuide Milestone 6 backend, PostgreSQL and (optional) Redis/MLflow.
+Requirements: Node.js 20.19+ or 22.12+, npm, the RepoGuide backend, PostgreSQL and (optional) Redis/MLflow.
 
 From **RepoGuide project root**:
 
@@ -17,13 +17,13 @@ In a second terminal:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
 Open http://127.0.0.1:5173. The Vite development proxy forwards `/api`, `/repositories`, and `/feedback` to http://127.0.0.1:8000. No permanent CORS exception or API key in browser code is required.
 
-Check frontend: `npm run typecheck && npm run build && npm test`.
+Check frontend: `npm run build && npm test` (the build includes TypeScript checks).
 
 ## Views
 
@@ -44,6 +44,6 @@ The indexer stores exact UTF-8 file snapshots *only for supported, size-limited 
 
 In-process job progress does not survive a Python process restart or multiple Uvicorn workers. Indexing progress is based on real stage transitions, not fabricated per-file progress. The UI uses a polling interval for reliability.
 
-The Evaluation Lab may incur LLM calls. It is limited to up to 20 cases from a fixed allowlist of evaluation datasets, and uses local-only job controls. Existing M3/M5 reports may have different shapes; the view adapts to available data.
+The Evaluation Lab may incur LLM calls. It is limited to up to 20 cases from a fixed allowlist of evaluation datasets, and uses local-only job controls. Generated reports appear when present locally; a fresh checkout starts with no historical results.
 
 Full source files/prompts/traces can be sensitive. Continue to use MLflow privacy flags responsibly. The source viewer never evaluates or executes repository code.

@@ -1,4 +1,3 @@
-from repoguide.telemetry import observed
 """Graph-aware retrieval while keeping a fixed evidence budget."""
 
 from dataclasses import dataclass
@@ -8,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from repoguide.models import Chunk, CodeEdge, CodeSymbol
 from repoguide.retriever import retrieve
+from repoguide.telemetry import observed
 
 
 @dataclass
@@ -17,8 +17,7 @@ class Evidence:
     distance: float | None
 
 
-@observed("retrieval.graph", "RETRIEVER" if "retrieval" in "retrieval.graph" else "CHAIN")
-
+@observed("retrieval.graph", "RETRIEVER")
 def retrieve_with_graph(
     *,
     session: Session,

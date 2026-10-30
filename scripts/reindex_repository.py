@@ -1,8 +1,9 @@
-"""Explicitly reindex the current HEAD of one repository with M3 chunking.
+"""Explicitly reindex the current HEAD of one repository with the current chunking pipeline.
 
 Warning: replaces stored chunks and graph for that repo/commit transactionally.
 The existing repo ID stays the same but existing chunk IDs are replaced.
 """
+
 import argparse
 
 from repoguide.db import SessionLocal

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { Activity, ArrowRight, BookOpenText, Braces, ChartNoAxesColumnIncreasing, ChevronsUpDown,
   Command, Database, GitBranch, Github, LayoutDashboard, Menu, Moon, Plus, Search, Sun, TerminalSquare,
   X, Layers3, LoaderCircle } from 'lucide-react';
@@ -7,11 +7,11 @@ import {authEnabled,authManager} from './lib/auth';
 import type { Repo, RepoFile } from './lib/types';
 import { Dialog, Empty, ErrorPanel, Status } from './components/Shared';
 import { OverviewView } from './components/OverviewView';
-import { GraphView } from './components/GraphView';
-import { ExplorerView } from './components/ExplorerView';
+const GraphView = lazy(() => import('./components/GraphView').then(module => ({ default: module.GraphView })));
+const ExplorerView = lazy(() => import('./components/ExplorerView').then(module => ({ default: module.ExplorerView })));
 import { ChatView } from './components/ChatView';
 import { DependenciesView } from './components/DependenciesView';
-import { EvaluationView } from './components/EvaluationView';
+const EvaluationView = lazy(() => import('./components/EvaluationView').then(module => ({ default: module.EvaluationView })));
 import { IndexView } from './components/IndexView';
 
 export type View='overview'|'architecture'|'explorer'|'ask'|'dependencies'|'evaluation'|'indexing';
@@ -97,6 +97,7 @@ export default function App(){
       </header>
       {repoError&&<div className="api-banner"><ErrorPanel message={`Backend connection: ${repoError}`} retry={()=>void refreshRepos()}/></div>}
       <main className="workspace">
+        <Suspense fallback={<div className="empty"><LoaderCircle className="spin"/><p>Loading view…</p></div>}>
         {view==='indexing'?<IndexView initialUrl={repo?.url||''} onFinished={async id=>{await refreshRepos();setRepoId(id);chooseView('overview')}}/>:
          !repo ? (loadingRepos?<div className="empty"><LoaderCircle className="spin"/><p>Connecting to RepoGuide…</p></div>:<Empty title="Your workspace is ready" description="Index your first GitHub repository to explore its architecture and ask grounded questions." action={<button className="primary-btn" onClick={()=>chooseView('indexing')}><Plus size={15}/>Index a repository<ArrowRight size={15}/></button>}/>) :
          <div key={repoId} className="view-frame">
@@ -107,6 +108,7 @@ export default function App(){
           {view==='dependencies'&&<DependenciesView repo={repo} onFile={jumpToFile}/>}
           {view==='evaluation'&&<EvaluationView repo={repo}/>}
          </div>}
+        </Suspense>
       </main>
     </div>
     {command&&<Dialog title="Go to…" onClose={()=>setCommand(false)}>

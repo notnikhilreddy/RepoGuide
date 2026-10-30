@@ -76,3 +76,54 @@ resource "aws_cloudwatch_log_group" "worker" {
   name              = "/ecs/${local.name}-worker"
   retention_in_days = 7
 }
+
+# Keep only the latest three deployed/rollback images; inspect old active tags before use.
+resource "aws_ecr_lifecycle_policy" "api" {
+  repository = aws_ecr_repository.api.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Retain only three most recent images"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = 3
+      }
+      action = { type = "expire" }
+    }]
+  })
+}
+
+# Keep only the latest three deployed/rollback images; inspect old active tags before use.
+resource "aws_ecr_lifecycle_policy" "worker" {
+  repository = aws_ecr_repository.worker.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Retain only three most recent images"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = 3
+      }
+      action = { type = "expire" }
+    }]
+  })
+}
+
+# Deny plain-HTTP S3 requests; matches our private, encrypted bucket policy.
+resource "aws_s3_bucket_policy" "artifacts_tls" {
+  bucket = aws_s3_bucket.artifacts.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "RequireTLS"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource  = [aws_s3_bucket.artifacts.arn, "${aws_s3_bucket.artifacts.arn}/*"]
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
+  depends_on = [aws_s3_bucket_public_access_block.artifacts]
+}

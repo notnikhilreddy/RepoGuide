@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from repoguide.config import settings
-
+from repoguide.sql_observability import instrument_engine
 
 engine = create_engine(
     settings.database_url,
@@ -13,7 +13,6 @@ engine = create_engine(
     pool_recycle=300,
 )
 
-from repoguide.sql_observability import instrument_engine
 instrument_engine(engine)
 
 SessionLocal = sessionmaker(

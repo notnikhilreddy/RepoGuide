@@ -4,10 +4,9 @@ Maintains Milestone 1/2 retrieval APIs and requires no external search service.
 """
 
 from __future__ import annotations
-from repoguide.telemetry import observed
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -15,7 +14,7 @@ from sqlalchemy.orm import Session
 from repoguide.graph import retrieve_with_graph
 from repoguide.models import Chunk
 from repoguide.retriever import retrieve
-
+from repoguide.telemetry import observed
 
 # Must match the index expression in migrations_examples/fts_migration.py.
 # PostgreSQL 'simple' dictionary preserves code vocabulary better than English
@@ -118,8 +117,7 @@ def lexical_terms(question: str) -> str:
     return " | ".join(unique[:12])
 
 
-@observed("retrieval.keyword", "RETRIEVER" if "retrieval" in "retrieval.keyword" else "CHAIN")
-
+@observed("retrieval.keyword", "RETRIEVER")
 def keyword_retrieve(
     *,
     session: Session,
@@ -154,8 +152,7 @@ def keyword_retrieve(
     ]
 
 
-@observed("retrieval.rrf", "RETRIEVER" if "retrieval" in "retrieval.rrf" else "CHAIN")
-
+@observed("retrieval.rrf", "RETRIEVER")
 def rrf_fuse(
     rankings: list[tuple[str, list[SearchHit]]],
     *,
@@ -207,8 +204,7 @@ def rrf_fuse(
     ]
 
 
-@observed("retrieval.rerank", "RETRIEVER" if "retrieval" in "retrieval.rerank" else "CHAIN")
-
+@observed("retrieval.rerank", "RETRIEVER")
 def rerank_hits(question: str, hits: list[SearchHit]) -> list[SearchHit]:
     """Cross-encoder reranking only for candidates already retrieved."""
     if not hits:
@@ -234,8 +230,7 @@ def rerank_hits(question: str, hits: list[SearchHit]) -> list[SearchHit]:
     )
 
 
-@observed("retrieval.search", "RETRIEVER" if "retrieval" in "retrieval.search" else "CHAIN")
-
+@observed("retrieval.search", "RETRIEVER")
 def search(
     *,
     session: Session,

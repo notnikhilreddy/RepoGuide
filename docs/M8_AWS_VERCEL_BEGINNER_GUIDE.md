@@ -89,7 +89,7 @@ uv lock
 uv sync --dev
 cd frontend && npm install && npm run typecheck && npm run build && npm test
 cd ..
-uv run pytest -q tests/test_m8_cloud_pure.py
+uv run pytest -q tests/test_cloud.py
 ```
 
 Commit `uv.lock` and `frontend/package-lock.json` along with the source patch. Both Docker builds use the frozen `uv.lock` to avoid silently changing package dependencies during deployment.
@@ -254,13 +254,15 @@ VALUES
 chmod 600 .env.deploy
 ```
 
-Edit actual secrets only on your computer. Run:
+Edit actual secrets only on your computer. Keep all deploy settings in this one file; no additions file is needed. Preview the local payload with `--dry-run`. To create or completely replace it, run:
 
 ```bash
-uv run python scripts/create_runtime_secrets.py \
+uv run python scripts/update_runtime_settings.py \
   --env-file .env.deploy \
   --name /repoguide/demo/runtime
 ```
+
+For later updates, edit `.env.deploy` and run the same command. It overwrites the complete JSON payload, including empty strings, and removes keys absent from your local file. There is no remote read, merge, or comparison. `--dry-run` works locally without AWS calls. Use `--profile` / `--region` or the AWS environment variables to select the account and region. The operator needs `ssm:PutParameter` and applicable KMS access. Use `--kms-key-id` for a custom key; otherwise AWS uses its default SSM key. See the root README for process restart behavior.
 
 Verify in AWS **Systems Manager → Parameter Store**; the value is encrypted. Avoid printing the decrypted content. Terraform refers to the **parameter name** only. Application startup reads it with an IAM task or Lambda execution role. Use the default SSM encryption key for this starter; a custom customer KMS key needs an additional scoped `kms:Decrypt` policy.
 

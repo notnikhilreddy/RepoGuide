@@ -4,21 +4,36 @@ on:
   pull_request:
   workflow_dispatch:
 jobs:
-  fast-tests:
+  backend:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql+psycopg://repoguide:repoguide@localhost:5432/repoguide
+      MLFLOW_ENABLED: "false"
+      HF_HUB_OFFLINE: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - name: Install locked environment
-        run: uv sync --dev
+        run: uv sync --dev --frozen
       - name: Lint
-        env:
-          DATABASE_URL: postgresql+psycopg://repoguide:repoguide@localhost:5432/repoguide
-          MLFLOW_ENABLED: "false"
-        run: uv run ruff check src/repoguide/telemetry.py src/repoguide/router.py src/repoguide/workflow.py src/repoguide/pipeline.py src/repoguide/api.py evals/quality_metrics.py
-      - name: Deterministic tests
-        env:
-          DATABASE_URL: postgresql+psycopg://repoguide:repoguide@localhost:5432/repoguide
-          MLFLOW_ENABLED: "false"
-        run: uv run pytest tests/test_m6_pure.py tests/test_api.py -q
-# Full PostgreSQL + live LLM judges are separate explicit gated workflows.
+        run: uv run ruff check src scripts evals tests
+      - name: Formatting
+        run: uv run ruff format --check src scripts evals tests
+      - name: Offline regression tests
+        run: uv run pytest -q
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+# Live PostgreSQL/LLM benchmarks remain in the explicit evaluation workflow.

@@ -1,12 +1,12 @@
-from repoguide.telemetry import span, record
 import re
 import subprocess
 import tempfile
-
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
+
+from repoguide.telemetry import span
 
 
 @dataclass
@@ -73,22 +73,22 @@ def clone_repository(url: str):
         ]
 
         try:
-            with span("git.clone", "TOOL", {"owner": owner, "repo": repo, "depth": 1}) as trace_span:
+            with span("git.clone", "TOOL", {"owner": owner, "repo": repo, "depth": 1}):
                 subprocess.run(
                     command,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=120,
-                env={
-                    "PATH": __import__("os").environ.get("PATH", ""),
-                    "HOME": temp_dir,
-                    "GIT_CONFIG_NOSYSTEM": "1",
-                    "GIT_CONFIG_GLOBAL": "/dev/null",
-                    "GIT_TERMINAL_PROMPT": "0",
-                    "GIT_LFS_SKIP_SMUDGE": "1",
-                },
-            )
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    env={
+                        "PATH": __import__("os").environ.get("PATH", ""),
+                        "HOME": temp_dir,
+                        "GIT_CONFIG_NOSYSTEM": "1",
+                        "GIT_CONFIG_GLOBAL": "/dev/null",
+                        "GIT_TERMINAL_PROMPT": "0",
+                        "GIT_LFS_SKIP_SMUDGE": "1",
+                    },
+                )
 
             result = subprocess.run(
                 ["git", "-C", str(destination), "rev-parse", "HEAD"],

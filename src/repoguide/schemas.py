@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field, HttpUrl
 from typing import Literal
+
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class IndexRepositoryRequest(BaseModel):

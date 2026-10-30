@@ -6,7 +6,7 @@ on:
       - 'src/repoguide/cloud_*.py'
       - 'src/repoguide/ui_api.py'
       - 'docker/**'
-      - 'tests/test_m8_cloud_pure.py'
+      - 'tests/test_cloud.py'
       - 'pyproject.toml'
       - 'uv.lock'
   workflow_dispatch:
@@ -30,4 +30,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --dev --frozen
-      - run: uv run pytest -q tests/test_m8_cloud_pure.py
+      - run: uv run pytest -q tests/test_cloud.py

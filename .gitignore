@@ -12,23 +12,30 @@ mlruns/
 mlartifacts/
 *.log
 .repoguide_patch_backup_*
-.env.deploy
-.env.deploy.additions
 
 # RepoGuide frontend / local evaluation outputs
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
 frontend/.vite/
-evals/m7_latest_results.json
+evals/*_results.json
+evals/*_answers.jsonl
 
 # M8 Terraform and local cloud settings
 infra/terraform/.terraform/
 infra/terraform/*.tfstate*
-infra/terraform/.terraform.lock.hcl
 infra/terraform/terraform.tfvars
-infra/terraform/.terraform_syntax_backup*
+infra/terraform/*backup*
 frontend/.env.production
 
 .env.*
 !frontend/.env.production.example
+
+# Share templates; keep every actual env file private.
+!.env.example
+!.env.deploy.example
+
+# Generated infrastructure plans
+infra/terraform/*.tfplan
+infra/terraform/plan.txt
+Untitled

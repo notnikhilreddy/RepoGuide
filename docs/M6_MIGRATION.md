@@ -92,7 +92,7 @@ For a measured CI gate: `uv run python evals/ci_gate.py evals/m6_results.json --
 
 ```bash
 uv run python -m compileall src/repoguide
-uv run pytest tests/test_m6_pure.py tests/test_m6_pipeline.py -q
+uv run pytest tests/test_answer_validation.py tests/test_pipeline.py -q
 uv run pytest -q                 # Full suite needs all original dependencies
 uv run python evals/benchmark_router_m6.py --providers llm
 uv run python evals/run_m6_mlflow.py REPO_UUID --dataset evals/m3_cases.json --limit 5

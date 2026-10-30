@@ -1,4 +1,3 @@
-from repoguide.telemetry import observed
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -6,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from repoguide.embeddings import get_embedding_service
 from repoguide.models import Chunk
+from repoguide.telemetry import observed
 
 
 @dataclass
@@ -14,8 +14,7 @@ class RetrievedChunk:
     distance: float
 
 
-@observed("retrieval.vector", "RETRIEVER" if "retrieval" in "retrieval.vector" else "CHAIN")
-
+@observed("retrieval.vector", "RETRIEVER")
 def retrieve(
     *,
     session: Session,

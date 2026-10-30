@@ -51,3 +51,32 @@ resource "aws_budgets_budget" "small_budget" {
     subscriber_email_addresses = [var.alert_email]
   }
 }
+
+# Detect queued indexing work that hasn't been picked up for >=15 minutes.
+resource "aws_cloudwatch_metric_alarm" "queue_age" {
+  alarm_name          = "${local.name}-index-queue-age"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  threshold           = 900
+  namespace           = "AWS/SQS"
+  metric_name         = "ApproximateAgeOfOldestMessage"
+  period              = 300
+  statistic           = "Maximum"
+  dimensions          = { QueueName = aws_sqs_queue.index.name }
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "scaler_errors" {
+  alarm_name          = "${local.name}-scaler-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  threshold           = 0
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  period              = 300
+  statistic           = "Sum"
+  dimensions          = { FunctionName = aws_lambda_function.scaler.function_name }
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+}

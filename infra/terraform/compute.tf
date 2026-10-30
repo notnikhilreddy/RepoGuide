@@ -50,7 +50,7 @@ resource "aws_lambda_function" "api" {
   memory_size                    = 2048
   timeout                        = 29
   architectures                  = ["x86_64"]
-  reserved_concurrent_executions = 2
+  reserved_concurrent_executions = -1
   ephemeral_storage { size = 2048 }
   environment { variables = {
     REPOGUIDE_CLOUD_MODE               = "true"
@@ -67,15 +67,13 @@ resource "aws_lambda_function" "api" {
   depends_on = [aws_iam_role_policy_attachment.api_logs, aws_cloudwatch_log_group.api]
 }
 resource "aws_lambda_function" "scaler" {
-  function_name = "${local.name}-scaler"
-  role          = aws_iam_role.scaler.arn
-  package_type  = "Image"
-  image_uri     = var.api_image_uri
-  image_config { command = ["repoguide.cloud_scaler.handler"] }
+  function_name                  = "${local.name}-scaler"
+  role                           = aws_iam_role.scaler.arn
+  package_type                   = "Zip"
   memory_size                    = 256
   timeout                        = 30
   architectures                  = ["x86_64"]
-  reserved_concurrent_executions = 1
+  reserved_concurrent_executions = -1
   environment { variables = {
     REPOGUIDE_JOB_TABLE   = aws_dynamodb_table.jobs.name
     REPOGUIDE_QUEUE_URL   = aws_sqs_queue.index.id
@@ -83,6 +81,11 @@ resource "aws_lambda_function" "scaler" {
     REPOGUIDE_ECS_SERVICE = aws_ecs_service.worker.name
   } }
   depends_on = [aws_iam_role_policy_attachment.scaler_logs, aws_cloudwatch_log_group.scaler]
+  # Tiny stdlib + runtime-provided boto3 ZIP; no PyTorch or model weights.
+  filename         = data.archive_file.scaler.output_path
+  source_code_hash = data.archive_file.scaler.output_base64sha256
+  runtime          = "python3.12"
+  handler          = "cloud_scaler.handler"
 }
 resource "aws_cloudwatch_event_rule" "scaler" {
   name                = "${local.name}-worker-scaler"
@@ -97,4 +100,13 @@ resource "aws_lambda_permission" "scaler" {
   function_name = aws_lambda_function.scaler.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.scaler.arn
+}
+
+# Keep this generated ZIP under .terraform so it cannot be committed by mistake.
+# Run terraform init before plan: the archive data source needs its output folder.
+data "archive_file" "scaler" {
+  type             = "zip"
+  source_file      = "${path.module}/../../src/repoguide/cloud_scaler.py"
+  output_path      = "${path.module}/.terraform/repoguide_scaler.zip"
+  output_file_mode = "0644"
 }

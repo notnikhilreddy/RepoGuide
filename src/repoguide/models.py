@@ -115,6 +115,7 @@ class RepoDependency(Base):
 
 class SourceFile(Base):
     """Exact read-only source snapshot for Monaco, keyed by indexed commit."""
+
     __tablename__ = "source_files"
     repo_id: Mapped[str] = mapped_column(
         ForeignKey("repositories.id", ondelete="CASCADE"), primary_key=True
@@ -122,4 +123,3 @@ class SourceFile(Base):
     path: Mapped[str] = mapped_column(Text, primary_key=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     byte_count: Mapped[int] = mapped_column(nullable=False)
-

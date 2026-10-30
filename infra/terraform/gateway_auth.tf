@@ -1,5 +1,6 @@
 resource "aws_cognito_user_pool" "demo" {
-  name = "${local.name}-users"
+  name           = "${local.name}-users"
+  user_pool_tier = "LITE"
   admin_create_user_config { allow_admin_create_user_only = true }
   auto_verified_attributes = ["email"]
   username_attributes      = ["email"]
@@ -11,6 +12,12 @@ resource "aws_cognito_user_pool" "demo" {
     require_symbols                  = true
     temporary_password_validity_days = 7
   }
+  # Optional software-token MFA is available to admins/reviewers who enroll.
+  # This does not enforce MFA for the admin group by itself.
+  mfa_configuration = "OPTIONAL"
+  software_token_mfa_configuration {
+    enabled = true
+  }
 }
 resource "aws_cognito_user_group" "admins" {
   user_pool_id = aws_cognito_user_pool.demo.id
@@ -18,8 +25,9 @@ resource "aws_cognito_user_group" "admins" {
   description  = "May enqueue costly indexing jobs"
 }
 resource "aws_cognito_user_pool_domain" "demo" {
-  domain       = "${var.project}-${random_id.suffix.hex}"
-  user_pool_id = aws_cognito_user_pool.demo.id
+  domain                = "${var.project}-${random_id.suffix.hex}"
+  user_pool_id          = aws_cognito_user_pool.demo.id
+  managed_login_version = 1
 }
 resource "aws_cognito_user_pool_client" "spa" {
   name                                 = "${local.name}-spa"
@@ -66,6 +74,8 @@ resource "aws_apigatewayv2_route" "default" {
   target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  # Forces API Gateway to validate a scoped OAuth access token, not merely an ID token.
+  authorization_scopes = ["openid"]
 }
 resource "aws_apigatewayv2_route" "health" {
   api_id             = aws_apigatewayv2_api.http.id
@@ -97,4 +107,13 @@ resource "aws_lambda_permission" "apigateway" {
   function_name = aws_lambda_function.api.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http.execution_arn}/*/*"
+}
+
+# API Gateway HTTP API: the JWT-protected $default route catches OPTIONS too.
+# This higher-priority unauthenticated route permits browser CORS preflights.
+resource "aws_apigatewayv2_route" "preflight" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "OPTIONS /{proxy+}"
+  authorization_type = "NONE"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }

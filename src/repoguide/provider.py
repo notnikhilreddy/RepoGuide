@@ -3,6 +3,7 @@
 Generation is provider-agnostic. Streaming uses native APIs when supported and
 falls back to a single non-streaming response on unsupported server features.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -31,6 +32,7 @@ def identity() -> ProviderIdentity:
 def complete(prompt: str) -> str:
     # No replacement of working llm.py and its client settings.
     from repoguide.llm import generate_answer
+
     return generate_answer(prompt)
 
 
@@ -41,17 +43,20 @@ def stream(prompt: str) -> Iterator[str]:
     fall back once to a normal completion, but never retry after deltas were sent.
     """
     from repoguide import llm
+
     provider = identity().provider
     delivered = False
     try:
         if provider == "gemini":
             from google.genai import types
+
             chunks = llm.get_gemini_client().models.generate_content_stream(
                 model=settings.gemini_model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=llm.SYSTEM_PROMPT,
-                    temperature=0.1, max_output_tokens=3500,
+                    temperature=0.1,
+                    max_output_tokens=3500,
                 ),
             )
             for chunk in chunks:

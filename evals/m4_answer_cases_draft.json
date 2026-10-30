@@ -1,7 +1,0 @@
-[
-  {"question":"How does repository indexing reach PostgreSQL?","needs_docs":false},
-  {"question":"Where are database sessions created and managed?","needs_docs":false},
-  {"question":"How should we migrate our FastAPI startup hooks to lifespan events?","needs_docs":true},
-  {"question":"Does our code follow current SQLAlchemy session recommendations?","needs_docs":true},
-  {"question":"What are the current recommended LangGraph StateGraph patterns for this project's orchestration?","needs_docs":true}
-]

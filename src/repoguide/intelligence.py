@@ -1,7 +1,6 @@
 """Conservative static analysis. Tree-sitter discovers syntax; it is not a type checker."""
 
 from __future__ import annotations
-from repoguide.telemetry import observed
 
 import ast
 import json
@@ -17,6 +16,7 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
 from repoguide.parser import collect_source_files
+from repoguide.telemetry import observed
 
 GRAMMARS = {
     ".py": Language(tree_sitter_python.language()),
@@ -387,8 +387,7 @@ def dependencies_from_manifests(root: Path) -> list[DependencyDraft]:
     return result
 
 
-@observed("index.analyze_symbols", "RETRIEVER" if "retrieval" in "index.analyze_symbols" else "CHAIN")
-
+@observed("index.analyze_symbols", "CHAIN")
 def analyze_repository(root: Path) -> Analysis:
     result = Analysis()
     aliases = {}
