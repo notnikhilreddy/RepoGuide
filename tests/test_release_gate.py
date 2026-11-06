@@ -1,8 +1,11 @@
 import copy
+import hashlib
+import json
 from datetime import datetime, timezone
 
 import pytest
 
+from evals.product_release_policy import measured_comparison
 from evals.release_gate import HIGHER, LOWER, REQUIRED_METADATA, SAFETY, compare
 
 
@@ -99,3 +102,60 @@ def test_target_dependency_changes_are_recorded_and_evaluated():
     baseline, candidate = valid(), valid()
     candidate["metadata"]["dependency_sha256"] = "new evaluated lock"
     assert compare(baseline, candidate)["passed"]
+
+
+def reviewed_tradeoff():
+    baseline, candidate = valid(), valid()
+    baseline["slices"]["grounding"] = {"citation_precision": 1.0}
+    candidate["slices"]["grounding"] = {"citation_precision": 0.875}
+    baseline["ranges"]["slices/grounding/citation_precision"] = {"min": 1, "max": 1}
+    candidate["ranges"]["slices/grounding/citation_precision"] = {"min": 0.75, "max": 1}
+    result = compare(baseline, candidate)
+    policy = {
+        "version": "product-owner-tradeoffs-v1",
+        "source_sha256": candidate["source_sha256"],
+        "baseline_source_sha256": baseline["source_sha256"],
+        "candidate_report_sha256": hashlib.sha256(
+            json.dumps(candidate, sort_keys=True).encode()
+        ).hexdigest(),
+        "accept_overlapping_observed_ranges": True,
+        "accepted_slice_regressions": result["regressions"],
+        "authorization": {
+            "instruction": "Publish the measured explanatory answer candidate"
+        },
+    }
+    return baseline, candidate, policy
+
+
+def test_explicit_review_preserves_strict_rejection_and_measured_tradeoffs():
+    baseline, candidate, policy = reviewed_tradeoff()
+    assert not measured_comparison(baseline, candidate)["passed"]
+    accepted = measured_comparison(baseline, candidate, policy)
+    assert accepted["passed"] and accepted["strict_non_regression_passed"] is False
+    assert accepted["regressions"] == compare(baseline, candidate)["regressions"]
+    assert accepted["inconclusive"]
+
+
+def test_review_cannot_authorize_changed_source_or_measurement():
+    baseline, candidate, policy = reviewed_tradeoff()
+    candidate["source_sha256"] = "f" * 64
+    with pytest.raises(ValueError, match="exact release"):
+        measured_comparison(baseline, candidate, policy)
+
+
+def test_review_cannot_authorize_an_additional_global_regression():
+    baseline, candidate, policy = reviewed_tradeoff()
+    candidate["metrics"]["correctness"] = 0.7
+    candidate["ranges"]["metrics/all/correctness"] = {"min": 0.7, "max": 0.7}
+    policy["candidate_report_sha256"] = hashlib.sha256(
+        json.dumps(candidate, sort_keys=True).encode()
+    ).hexdigest()
+    with pytest.raises(ValueError, match="Unreviewed"):
+        measured_comparison(baseline, candidate, policy)
+
+
+def test_review_cannot_bypass_safety_or_missing_measurements():
+    baseline, candidate, policy = reviewed_tradeoff()
+    candidate["safety"]["no_secret_leak"] = False
+    with pytest.raises(ValueError, match="safety"):
+        measured_comparison(baseline, candidate, policy)

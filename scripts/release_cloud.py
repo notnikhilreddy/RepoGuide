@@ -17,6 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from evals.product_release_policy import measured_comparison  # noqa: E402
 from evals.release_gate import compare  # noqa: E402
 
 
@@ -32,6 +33,7 @@ def release_fingerprint():
         ROOT / "deployment/release-config.json",
         ROOT / "deployment/models.json",
         ROOT / "deployment/evaluator-config.json",
+        ROOT / "deployment/product-quality-acceptance.json",
         ROOT / "deployment/requirements-api.txt",
         ROOT / "deployment/requirements-answer.txt",
         ROOT / "deployment/requirements-index.txt",
@@ -135,7 +137,10 @@ def verify_evaluation():
     artifacts = ROOT / ".artifacts"
     baseline = json.loads((artifacts / "baseline-evaluation.json").read_text())
     candidate = json.loads((artifacts / "candidate-evaluation.json").read_text())
-    result = compare(baseline, candidate)
+    policy_path = ROOT / "deployment/product-quality-acceptance.json"
+    policy = json.loads(policy_path.read_text()) if policy_path.exists() else None
+    result = measured_comparison(baseline, candidate, policy)
+    (artifacts / "quality-comparison.json").write_text(json.dumps(result, indent=2))
     if not result["passed"]:
         raise ValueError("Non-regression gate rejected the candidate")
     if candidate["source_sha256"] != source_hash():
