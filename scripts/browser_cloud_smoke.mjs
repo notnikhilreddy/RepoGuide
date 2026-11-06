@@ -104,6 +104,6 @@ finally{
   if(access&&createdConversation)await fetch(api+'/api/conversations/'+createdConversation,{method:'DELETE',headers:{Authorization:'Bearer '+access}}).catch(()=>{});
   if(startedCompute&&access)await fetch(api+'/api/compute/answer/stop',{method:'POST',headers:{Authorization:'Bearer '+access,'Content-Type':'application/json'},body:JSON.stringify({force:!report.passed})}).catch(()=>{});
   report.posts=posts;report.csp_errors=csp;report.page_error_types=pageErrors;
-  writeFileSync('.artifacts/browser-'+label+'-smoke.json',JSON.stringify(report,null,2));await browser.close();
+  writeFileSync('.artifacts/browser-'+label+(readonly?'-readonly':'')+'-smoke.json',JSON.stringify(report,null,2));await browser.close();
 }
 console.log(JSON.stringify(report));
