@@ -425,6 +425,41 @@ finally:
     except cognito.exceptions.UserNotFoundException:
         pass
     if args.temporary_admin:
+        # Remove only this uniquely created smoke identity's isolated test index.
+        # Original indexes and every other owner's rows are explicitly fenced.
+        import psycopg
+        from update_runtime_settings import load_settings
+
+        original_ids = json.loads((ART / "product-database-backup.json").read_text())[
+            "snapshot"
+        ]["repository_ids"]
+        owner_url = load_settings(ROOT / ".env.deploy")["DATABASE_URL"].replace(
+            "postgresql+psycopg://", "postgresql://"
+        )
+        removed = []
+        with psycopg.connect(owner_url, connect_timeout=10) as db:
+            rows = db.execute(
+                "SELECT id FROM repositories WHERE owner_sub=%s AND url=%s",
+                (subject, "https://github.com/pallets/markupsafe"),
+            ).fetchall()
+            for (id,) in rows:
+                if id in original_ids:
+                    raise ValueError(
+                        "Smoke cleanup attempted to touch an original index"
+                    )
+                db.execute(
+                    "DELETE FROM repositories WHERE id=%s AND owner_sub=%s",
+                    (id, subject),
+                )
+                removed.append(id)
+        for id in removed:
+            boto3.client("dynamodb").delete_item(
+                TableName=out["job_table"],
+                Key={"pk": {"S": "repository#" + id}},
+                ConditionExpression="owner_sub=:s",
+                ExpressionAttributeValues={":s": {"S": subject}},
+            )
+        report["isolated_test_indexes_removed"] = removed
         cognito.admin_delete_user(UserPoolId=pool, Username=email)
         credentials_file.unlink(missing_ok=True)
     save()

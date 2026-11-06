@@ -246,16 +246,22 @@ def supporting_source(session, repo_id, seeds, limit=2):
             .order_by(Chunk.file_path, Chunk.start_line)
             .limit(6)
         ).all()
-        used = {h.chunk.id for h in seeds + output}
+        used = {h.chunk.id for h in output}
         for chunk in definitions:
             if chunk.id not in used:
-                output.append(
-                    SearchHit(
+                linked_hit = next((h for h in seeds if h.chunk.id == chunk.id), None)
+                if linked_hit is None:
+                    linked_hit = SearchHit(
                         chunk,
                         "reference_definition",
                         channels=("reference_definition",),
                     )
-                )
+                else:
+                    linked_hit.origin = "reference_definition"
+                    linked_hit.channels = tuple(
+                        dict.fromkeys((*linked_hit.channels, "reference_definition"))
+                    )
+                output.append(linked_hit)
                 used.add(chunk.id)
             if len(output) >= limit:
                 break
