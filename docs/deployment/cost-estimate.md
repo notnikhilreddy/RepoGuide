@@ -1,3 +1,21 @@
+# Improvement release cost review — November 6, 2026
+
+The authorized limits are **$2 total live model evaluation/acceptance** and **under $10 for AWS rollout**. The existing **$15/month alert** remains configured. No new always-on service, NAT gateway, tracking server or paid-plan upgrade was introduced. Existing Neon, Upstash and Vercel resources are reused.
+
+The shared model ledger `.artifacts/product-eval/spend.json` currently holds **$1.502115** in conservative reservations, including failed/unused attempts and all live functional questions. The one remaining minute-59 answer reserves another $0.09, for an expected ceiling of **$1.592115**. Recorded evaluation usage is approximately $0.1051; functional allocations are held upper bounds rather than fabricated actual token charges. Reservations are not refunded to make room for more runs. No further quality tuning or comparative evaluation is planned.
+
+Ohio Linux/x86 Fargate costs $0.04048/vCPU-hour plus $0.004445/GiB-hour; one public IPv4 adds about $0.005/hour. A running 1-vCPU/2-GiB worker therefore costs approximately **$0.05437/hour**, versus $0.06326 at 4 GiB. Rates were checked November 5 against the official AWS regional price list linked below. Both workers run only on explicit administrator start and stop after one real idle hour or explicit drain.
+
+A conservative compute planning bound, even assuming both services ran continuously throughout the entire November 5 00:00–November 6 14:00 UTC validation window at the larger 4-GiB allocation, is **76 aggregate task-hours × $0.06326 = $4.81** including task IPv4. The deployed services permit at most one task each during deployments. Actual observed runtime is substantially shorter. Small request, log, alarm and short-lived storage usage leaves this rollout estimated below $6 overall and below the $10 authorization. This is a planning bound, not a settled bill or an AWS spending cap. The read-only billing observation is saved in `.artifacts/product-budget-observation.json`; account-wide Cost Explorer remains estimated and delayed.
+
+Cleanup removed six unused image digests with a logical compressed sum of **3,076,570,642 bytes**, plus 14 task-definition revisions and three unused Vercel deployments. At a nominal $0.10/GB-month, that image sum would be an upper bound of about $0.31/month before layer deduplication; actual storage savings are smaller or pending billing. Retiring task definitions and Vercel deployments does not establish compute savings. Six recovery/current/measured images remain, with a logical compressed sum of 3,076,624,087 bytes. Tagged release evidence, backups and valuable user data are retained.
+
+S3 job artifacts expire after 30 days, noncurrent conversation versions after seven days, incomplete uploads after one day, untagged ECR images after seven days and CloudWatch logs after seven days. Saved current conversations and release audit artifacts are preserved. At zero workers there is no task compute/public-IPv4 charge, while managed requests and retained storage can still cost money. The operational SNS subscription may still need email confirmation; the final monitoring receipt records its actual state. AWS Budgets notifications are delayed alerts, not a spending cap.
+
+## Historical initial-release estimate
+
+The following November 5 record applies to the earlier release. Its paid-evaluation and idle-test deferrals do not apply to the current improvement release.
+
 > Historical initial-release record. The current improvement release, authorization, scope and verification status are tracked in [product-release.md](product-release.md) and [IMPROVEMENT_STATUS.md](../IMPROVEMENT_STATUS.md). The earlier evaluation/idle deferrals do not authorize a new skipped quality gate.
 
 # Cost estimate — Ohio, November 5, 2026

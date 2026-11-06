@@ -1,3 +1,19 @@
+# Product improvement release — November 6, 2026
+
+The current release is **`release-8594722296f0308e`**, live at **https://repo-guide-five.vercel.app** on the existing AWS and Vercel resources. The [current product release record](product-release.md) contains exact image/package identities, source provenance, user decisions and practical limits.
+
+Verified for this release: **188 backend tests, five frontend Node tests, 13 local browser tests**, exact extracted ZIP/worker checks, native 1-vCPU/2-GiB failure/recovery/model-reuse checks, full real OAuth production-browser acceptance, owner isolation, S3 delivery/recovery, quota enforcement and real incremental indexing. The real update reused 156 chunks and embedded one changed chunk, preserving the previous revision. Original index content hashes are unchanged after migration and test cleanup.
+
+The explanatory candidate's paired live evaluation improved fact coverage **78.8% → 98.1%** and correctness **91.3% → 99.0%**. The owner accepted the recorded minor slice tradeoffs; the strict comparison remains preserved as failed. Actual measured AI source/image and the production serialization-only repair remain separately identified. No new quality measurements are claimed for the repair.
+
+Dependency-aware cleanup removed **14 unused task revisions, six old ECR digests and three unused Vercel deployments**. Current, original recovery and measured explanatory images remain; databases, conversations, secrets, backups, state and audit evidence were retained. Regional access denial is explicitly unresolved, not absence of resources.
+
+The real idle-window/reset check is still running. Final public-registration, zero-worker and Terraform drift readbacks are pending that observation. The model reservation is currently about $1.50, with one planned bounded idle-reset answer bringing it to about $1.59; AWS rollout is conservatively estimated below $6 and the $15/month alert remains configured. Billing is delayed; no settled actual AWS total is claimed.
+
+## Historical initial release
+
+The following evidence applies to the November 5 release. Its evaluation/idle deferrals and artifact identities do not describe the current release.
+
 > Historical initial-release record. The current improvement release, authorization, scope and verification status are tracked in [product-release.md](product-release.md) and [IMPROVEMENT_STATUS.md](../IMPROVEMENT_STATUS.md). The earlier evaluation/idle deferrals do not authorize a new skipped quality gate.
 
 # Release evidence — November 5, 2026

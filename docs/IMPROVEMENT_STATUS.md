@@ -18,16 +18,16 @@ The starting working tree passed 135 backend tests, four frontend Node tests, Ru
 
 | Area | Status |
 | --- | --- |
-| Ownership and access isolation | Migration applied; both original indexes preserved and shared read-only; live API isolation pending backend rollout |
+| Ownership and access isolation | Migration applied; both original indexes preserved and shared read-only; real two-user API/S3 and private-index isolation passed |
 | S3 conversations and bounded context | Implemented; durability, CAS, isolation and recovery tests passing |
-| Public GitHub freshness and incremental indexing | Implemented; isolated PostgreSQL incremental/rollback smoke passed |
+| Public GitHub freshness and incremental indexing | Real ordinary-user browser update passed: 156 reused chunks, one embedded chunk; old revision and duplicate-job safety verified. Isolated PostgreSQL add/modify/delete and publication rollback also passed |
 | Retrieval, citations and semantic routing | Implemented; completed explanatory candidate accepted with recorded measured tradeoffs |
-| Landing/auth, architecture, overview, navigation and worker header | Implemented; 13 local browser checks passed; live browser acceptance pending rollout |
+| Landing/auth, architecture, overview, navigation and worker header | 13 local browser checks and full real preview/production OAuth browser acceptance passed |
 | Diagnostics, timeline, feedback and usage | Implemented; backend and local browser verification passed |
-| Deployment and production verification | Exact-image checks passed; authorized AWS/Vercel rollout in progress |
-| Code/cloud cleanup | Code/reference audit completed; read-only cloud inventory and dependency-aware cleanup plan saved |
+| Deployment and production verification | Release `8594722296f0308e` live on existing AWS/Vercel; exact native worker checks passed; real idle window in progress |
+| Code/cloud cleanup | Reference audit and dependency-aware cleanup completed: 14 task revisions, six old images and three unused Vercel deployments retired; final zero-compute check follows idle observation |
 
-Verified locally: 175 backend tests, five frontend Node tests, 13 browser checks, TypeScript/build, extracted ZIP read-only browsing with owner grants, and Terraform validation. The database backup restored successfully and matches the original two indexes. Both optimized CPU images passed dependency/secret/critical/fixable-high security gates; vendor high-severity findings without fixes remain recorded in the scan reports. The production ownership migration is applied and original content hashes remain unchanged. Application cutover and live acceptance are in progress; registration remains closed.
+Verified locally: 188 backend tests, five frontend Node tests, 13 browser checks, TypeScript/build, extracted ZIP read-only browsing with owner grants, and Terraform validation. The database backup restored successfully and matches the original two indexes. Both optimized CPU images passed dependency/secret/critical/fixable-high security gates; vendor high-severity findings without fixes remain recorded in the scan reports. The source scan found no configured credentials in 248 tracked files. Production ownership migration, full native fail/recover/reuse checks, quota enforcement, OAuth browser acceptance, S3 recovery and real incremental indexing passed. Both worker models loaded once. The live application is published; registration remains closed until the controlled real idle observation finishes.
 
 See [the product release record](deployment/product-release.md) for scope, storage, safeguards and rollout sequence. This file records verified progress; a listed requirement is not evidence of live acceptance.
 

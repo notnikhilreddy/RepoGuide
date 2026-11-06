@@ -145,6 +145,9 @@ def main():
             pool["AdminCreateUserConfig"]["AllowAdminCreateUserOnly"]
             is not args.registration_enabled
         )
+        report["public_registration_enabled"] = not pool["AdminCreateUserConfig"][
+            "AllowAdminCreateUserOnly"
+        ]
         if before["workers"]["answer"]["desired_state"] == "off":
             request(
                 first_token,

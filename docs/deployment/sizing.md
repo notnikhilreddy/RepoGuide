@@ -1,4 +1,27 @@
-# Artifact and sizing measurements
+# Current artifact and sizing measurements — November 6, 2026
+
+Release `release-8594722296f0308e` uses **1 vCPU / 2 GiB per worker**, separately enabled and normally stopped. Native checks used the exact current Answer `f7d908c142f1` and Index `f12c97b03af0` images.
+
+| Current native observation | Answer | Index |
+| --- | ---: | ---: |
+| Explicit start to model/database ready | 71.82 s | 61.46 s |
+| Model process startup | 24.232 s | 19.454 s |
+| Representative uncached answer / full small-repository index | 15.77 s | 15.68 s |
+| Embedding model loads per process across failure/recovery/repeat | 1 | 1 |
+| One-minute sampled memory maximum | 29.395% (~602 MiB) | 22.705% (~465 MiB) |
+| One-minute sampled CPU maximum | 97.315% | 96.812% |
+
+These are representative small-repository jobs, not a latency distribution or unlimited capacity test. CloudWatch one-minute service samples do not establish instantaneous process RSS peaks. The full index used a new owner-scoped revision and the repeat was explicitly deduplicated. Same-worker process IDs and the one-time model loads are recorded in `.artifacts/native-2g-metrics.json` and `.artifacts/aws-final-smoke.json`.
+
+The current API ZIP is **5,529,909 bytes** and controller **15,477 bytes**. The exact extracted API with isolated TLS PostgreSQL had warm read p95 **56.7 ms**. Native warm browsing observations were about **62–166 ms**; the evaluation S3 read took **427 ms**. Those native endpoint observations are not p95 measurements. They do not require either worker to run.
+
+Current compressed ECR images are **545,319,749 bytes Answer** and **480,230,608 bytes Index**. Local uncompressed sizes are 2,073,248,733 and 1,947,800,936 bytes. Both remain CPU-only, with pinned bundled weights, no runtime model downloads and role-specific dependencies. The retained current, measured and original recovery pairs total six images. Their logical compressed byte sum is 3,076,624,087 before shared-layer deduplication; this is not billed ECR storage.
+
+The paired quality evaluation used Linux/amd64 containers under Apple Silicon emulation. Its warm p95 changed from 9.8 to 42.4 seconds; it does not measure native Fargate latency. Native evidence supports keeping one vCPU and the smaller 2-GiB allocation for the bounded demo. No allocation was reduced further.
+
+## Historical initial-release measurements
+
+The following November 5 observations apply to the earlier release and are retained for comparison. Their image/package identities and native timings do not describe the current release.
 
 The selected AWS allocation is **1 vCPU / 2 GiB per worker**, independently enabled with default desired count zero. CPU stays at one core because local repeated inference was faster than the half-core allocation; native memory measurements supported removing the extra 2 GiB. Large repositories can require more memory; do not assume the small fixture establishes an unlimited indexing capacity.
 
