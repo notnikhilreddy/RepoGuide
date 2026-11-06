@@ -68,12 +68,15 @@ if manifest["quality"]["status"] == "passed":
             ".artifacts/strict-quality-comparison.json",
             "deployment/product-quality-acceptance.json",
         ]
+    if manifest["quality"].get("deployment_equivalence"):
+        paths += [".artifacts/evaluation-equivalence.json"]
 if args.final:
     paths += [
         ".artifacts/product-database-rollout.json",
         ".artifacts/product-live-api-smoke.json",
         ".artifacts/product-incremental-live-smoke.json",
         ".artifacts/product-incremental-browser.json",
+        ".artifacts/product-serialization-recovery.json",
         ".artifacts/published-evaluation-catalog.json",
         ".artifacts/product-cloud-cleanup.json",
         ".artifacts/product-vercel-cleanup.json",

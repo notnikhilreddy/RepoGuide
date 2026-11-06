@@ -34,6 +34,31 @@ except BlockingIOError:
     ) from None
 
 KIND = sys.argv[1]
+reuse_index_fixture = "--reuse-indexed-fixture" in sys.argv
+if reuse_index_fixture:
+    if KIND != "index":
+        raise ValueError("Only Index can reuse the already indexed fixture")
+    from operational_equivalence import verify as verify_equivalence
+
+    verify_equivalence(
+        ROOT,
+        json.loads((ROOT / ".artifacts/candidate-evaluation.json").read_text()),
+        json.loads((ROOT / "deployment/product-quality-acceptance.json").read_text()),
+        {
+            kind: subprocess.check_output(
+                [
+                    "docker",
+                    "image",
+                    "inspect",
+                    "repoguide-" + kind + ":candidate",
+                    "--format",
+                    "{{.Id}}",
+                ],
+                text=True,
+            ).strip()
+            for kind in ["answer", "index"]
+        },
+    )
 ENDPOINT = "http://127.0.0.1:5500"
 os.environ.update(
     AWS_DEFAULT_REGION="us-east-2",
@@ -158,6 +183,7 @@ report = {
     "transport": "Moto SQS/DynamoDB/SSM",
     "database": "disposable local PostgreSQL",
     "models": "real offline CPU weights",
+    "index_fixture_reused_after_verified_serialization_only_change": reuse_index_fixture,
     "generation": "reviewed provider fixture (not live generation)"
     if KIND == "answer"
     else None,
@@ -185,7 +211,7 @@ try:
         {
             "url": "https://github.com/notnikhilreddy/RepoGuide",
             "commit_sha": "4aa70f5cbf345ab83ab7cc14257d79da6a8ee416",
-            "force": KIND == "index",
+            "force": KIND == "index" and not reuse_index_fixture,
         }
         if KIND == "index"
         else {

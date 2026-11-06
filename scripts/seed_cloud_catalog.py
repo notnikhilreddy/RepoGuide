@@ -120,6 +120,12 @@ def main():
             document = public_report(
                 name, measured, corpus, comparison if phase == "candidate" else None
             )
+            if phase == "candidate" and manifest["quality"].get(
+                "deployment_equivalence"
+            ):
+                document["notes"] += (
+                    " The measured answer/retrieval code is unchanged; the deployed build additionally repairs S3 chat serialization."
+                )
             if (
                 phase == "candidate"
                 and manifest["quality"].get("acceptance")
