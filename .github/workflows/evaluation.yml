@@ -1,33 +1,82 @@
-name: RepoGuide measured evaluation
+name: Protected paired quality gate
 on:
   workflow_dispatch:
-    inputs:
-      repo_id:
-        description: Previously indexed repository UUID (CI DB must contain it)
-        required: true
-      hit_threshold:
-        description: Measured Hit@8 gate (0..1)
-        required: true
-        default: '0.70'
-      mrr_threshold:
-        description: Measured MRR@8 gate (0..1)
-        required: true
-        default: '0.45'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: repoguide-quality
+  cancel-in-progress: false
 jobs:
-  evaluation:
-    runs-on: self-hosted  # Needs an indexed DB snapshot and model cache; never uses empty CI DB
+  quality:
+    if: github.ref == 'refs/heads/main'
+    environment: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
-      DATABASE_URL: ${{ secrets.REPOGUIDE_DATABASE_URL }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-      MLFLOW_CAPTURE_CONTENT: 'false'
-      MLFLOW_ENABLED: 'true'
-      ROUTER_PROVIDER: llm
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
+      AWS_REGION: us-east-2
+      AWS_EVALUATION_ROLE: ${{ vars.AWS_EVALUATION_ROLE_ARN }}
+      RELEASE_BUCKET: ${{ vars.RELEASE_BUCKET }}
+      DATABASE_URL: postgresql+psycopg://repoguide:repoguide@localhost:55432/repoguide
+      MLFLOW_ENABLED: 'false'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --dev
-      - name: Generate deterministic retrieval metrics and MLflow run
-        run: uv run python evals/run_m6_mlflow.py '${{ inputs.repo_id }}' --dataset evals/m3_cases.json --limit 30
-      - name: Gate on results from this run
-        run: uv run python evals/ci_gate.py evals/m6_results.json --min-hit '${{ inputs.hit_threshold }}' --min-mrr '${{ inputs.mrr_threshold }}'
+      - name: Require protected keys and approved-baseline store
+        run: |
+          test -n "$OPENAI_API_KEY"
+          test -n "$CONTEXT7_API_KEY"
+          test -n "$AWS_EVALUATION_ROLE"
+          test -n "$RELEASE_BUCKET"
+      - run: uv sync --dev --frozen
+      - run: uv run ruff check src scripts evals tests
+      - run: uv run pytest -q
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_EVALUATION_ROLE_ARN }}
+          aws-region: us-east-2
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Fetch protected baseline without changing it
+        run: |
+          mkdir -p .artifacts
+          uv run python scripts/fetch_release_baseline.py --bucket "$RELEASE_BUCKET"
+          uv run python scripts/prepare_evaluation_baseline.py .artifacts/approved-baseline.json
+      - name: Build candidate bytes before evaluation
+        run: |
+          uv run python scripts/prepare_release.py
+          docker buildx build --platform linux/amd64 --provenance=false --load -f docker/Dockerfile.answer -t repoguide-answer:candidate .
+          docker buildx build --platform linux/amd64 --provenance=false --load -f docker/Dockerfile.index -t repoguide-index:candidate .
+          uv run python scripts/package_cloud.py
+      - name: Prepare isolated fixture database
+        run: |
+          uv run python scripts/setup_validation_db.py
+          mkdir -p /tmp/repoguide-fixture
+          git archive 4aa70f5cbf345ab83ab7cc14257d79da6a8ee416 | tar -x -C /tmp/repoguide-fixture
+          docker run --rm --platform linux/amd64 --cpus 1 --memory 4g --network host --add-host host.docker.internal:127.0.0.1 \
+            -e DATABASE_URL='postgresql+psycopg://repoguide:repoguide@host.docker.internal:55432/repoguide?sslmode=require' \
+            -v /tmp/repoguide-fixture:/fixture-source:ro -v "$PWD/evals:/evals:ro" -v "$PWD/scripts:/scripts:ro" -v "$PWD/.artifacts:/evidence" \
+            repoguide-index:candidate python /scripts/seed_eval_fixture.py
+      - name: Paired live generation and judge evaluation, with finite budgets
+        run: |
+          uv run python scripts/run_release_evaluation.py baseline --baseline-manifest .artifacts/approved-baseline.json
+          uv run python scripts/run_release_evaluation.py candidate
+          uv run python evals/release_gate.py .artifacts/baseline-evaluation.json .artifacts/candidate-evaluation.json --output .artifacts/paired-comparison.json
+          uv run python evals/release_gate.py .artifacts/approved-evaluation.json .artifacts/candidate-evaluation.json
+      - name: Retain comparison evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-${{ github.sha }}
+          path: |
+            .artifacts/*evaluation.json
+            .artifacts/quality-comparison.json
+            .artifacts/evaluation-spend.json
+          retention-days: 7
+          if-no-files-found: error
+# This workflow has no ECR write, Terraform apply, Vercel promotion or baseline
+# write permission. The guarded operator publisher consumes the exact tested
+# artifacts; production baseline promotion is a post-smoke operation only.

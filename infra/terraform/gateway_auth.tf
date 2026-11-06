@@ -1,9 +1,16 @@
 resource "aws_cognito_user_pool" "demo" {
   name           = "${local.name}-users"
   user_pool_tier = "LITE"
-  admin_create_user_config { allow_admin_create_user_only = true }
+  admin_create_user_config { allow_admin_create_user_only = !var.enable_public_registration }
   auto_verified_attributes = ["email"]
   username_attributes      = ["email"]
+  account_recovery_setting {
+    recovery_mechanism {
+      name     = "verified_email"
+      priority = 1
+    }
+  }
+  user_attribute_update_settings { attributes_require_verification_before_update = ["email"] }
   password_policy {
     minimum_length                   = 12
     require_lowercase                = true
@@ -22,7 +29,7 @@ resource "aws_cognito_user_pool" "demo" {
 resource "aws_cognito_user_group" "admins" {
   user_pool_id = aws_cognito_user_pool.demo.id
   name         = "repoguide-admins"
-  description  = "May enqueue costly indexing jobs"
+  description  = "May explicitly start and stop Answer and Index compute"
 }
 resource "aws_cognito_user_pool_domain" "demo" {
   domain                = "${var.project}-${random_id.suffix.hex}"
@@ -37,18 +44,18 @@ resource "aws_cognito_user_pool_client" "spa" {
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   supported_identity_providers         = ["COGNITO"]
-  callback_urls                        = ["${var.frontend_origin}/", "http://localhost:5173/"]
-  logout_urls                          = ["${var.frontend_origin}/", "http://localhost:5173/"]
+  callback_urls                        = concat(["${var.frontend_origin}/", "http://localhost:5173/"], var.validation_frontend_origin != "" ? ["${var.validation_frontend_origin}/"] : [])
+  logout_urls                          = concat(["${var.frontend_origin}/", "http://localhost:5173/"], var.validation_frontend_origin != "" ? ["${var.validation_frontend_origin}/"] : [])
   prevent_user_existence_errors        = "ENABLED"
-  explicit_auth_flows                  = ["ALLOW_REFRESH_TOKEN_AUTH"]
+  explicit_auth_flows                  = ["ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_ADMIN_USER_PASSWORD_AUTH"]
 }
 resource "aws_apigatewayv2_api" "http" {
   name          = "${local.name}-http"
   protocol_type = "HTTP"
   cors_configuration {
-    allow_origins = distinct([var.frontend_origin, "http://localhost:5173"])
-    allow_methods = ["GET", "POST", "OPTIONS"]
-    allow_headers = ["Authorization", "Content-Type"]
+    allow_origins = distinct(concat([var.frontend_origin, "http://localhost:5173"], var.validation_frontend_origin != "" ? [var.validation_frontend_origin] : []))
+    allow_methods = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
+    allow_headers = ["Authorization", "Content-Type", "Idempotency-Key"]
     max_age       = 600
   }
 }
@@ -75,7 +82,7 @@ resource "aws_apigatewayv2_route" "default" {
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
   # Forces API Gateway to validate a scoped OAuth access token, not merely an ID token.
-  authorization_scopes = ["openid"]
+  authorization_scopes = ["openid", "aws.cognito.signin.user.admin"]
 }
 resource "aws_apigatewayv2_route" "health" {
   api_id             = aws_apigatewayv2_api.http.id

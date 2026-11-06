@@ -1,0 +1,9 @@
+{
+  "version": "release-v3-openai-budgeted",
+  "judge_model": "gpt-6-luna",
+  "repeats": 2,
+  "max_requests": 120,
+  "max_tokens": 500000,
+  "fixture_embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "max_total_usd": 2
+}

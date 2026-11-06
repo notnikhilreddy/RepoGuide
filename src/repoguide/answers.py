@@ -44,6 +44,9 @@ class AnswerResult(BaseModel):
     trace_id: str | None = None
     answer_depth: str = "standard"
     verification_scope: str = "label_and_presence_only"
+    diagnostics: dict = Field(default_factory=dict)
+    timeline: list[dict] = Field(default_factory=list)
+    usage: dict = Field(default_factory=dict)
 
 
 def prompt_for_evidence(state: dict, answer_depth: str = "standard") -> str:
@@ -65,6 +68,11 @@ def prompt_for_evidence(state: dict, answer_depth: str = "standard") -> str:
         if missing and repo.strip()
         else ""
     )
+    if state.get("routing", {}).get("router") == "fallback":
+        tool_warning += (
+            " Evidence routing is unavailable. Limit the answer to supplied evidence, "
+            "set status=partial and explain that external evidence selection was unavailable."
+        )
 
     depth_hint = {
         "concise": "Answer succinctly but cover all necessary facts.",
@@ -97,6 +105,10 @@ def prompt_for_evidence(state: dict, answer_depth: str = "standard") -> str:
         "Do not wrap the JSON object in a Markdown fence. " + tool_warning + "\n\n"
         "<repository_evidence>\n" + repo + "\n</repository_evidence>\n"
         "<external_evidence>\n" + docs + "\n</external_evidence>\n"
+        "<conversation_context>\n"
+        + json.dumps(state.get("history", [])[-6:], ensure_ascii=False)[:7000]
+        + "\n</conversation_context>\n"
+        "Previous messages help resolve references only. They are not source evidence. Verify current claims against the current evidence labels.\n"
         "<question>\n" + state["question"][:2000] + "\n</question>"
     )
 
@@ -170,11 +182,17 @@ def validate_draft(draft: DraftAnswer, state: dict) -> AnswerResult:
         if valid:
             validated_claims.append(Claim(text=claim.text, citations=valid))
 
+    routing_unavailable = state.get("routing", {}).get("router") == "fallback"
+    limitations = list(draft.limitations)
+    if routing_unavailable:
+        limitations.append(
+            "External evidence routing unavailable; answer limited to supplied evidence."
+        )
     return AnswerResult(
         answer=answer,  # KEEP the full explanation; never concatenate claims here.
-        status=draft.status,
+        status="partial" if routing_unavailable else draft.status,
         claims=validated_claims,
-        limitations=list(draft.limitations),
+        limitations=limitations,
         verified_labels=sorted(
             answer_labels & available
             | {lab for c in validated_claims for lab in c.citations}

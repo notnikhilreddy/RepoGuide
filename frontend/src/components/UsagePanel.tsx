@@ -1,0 +1,10 @@
+import {useEffect,useState} from 'react';
+import {api,hosted} from '../lib/api';
+import type {Usage} from '../lib/types';
+import {Dialog,Empty,ErrorPanel,Loading,Metric} from './Shared';
+export function UsagePanel({onClose}:{onClose:()=>void}){
+  const [data,setData]=useState<Usage|null>(null),[error,setError]=useState('');
+  useEffect(()=>{if(hosted)void api.usage().then(setData).catch(e=>setError(e instanceof Error?e.message:'Usage unavailable'))},[]);
+  const total=(name:string)=>data?.days.reduce((sum,day)=>sum+Number(day[name]||0),0)||0;
+  return <Dialog title="Your usage" onClose={onClose}><div className="usage-dialog">{!hosted?<Empty title="Hosted usage" description="Account usage is recorded by the hosted service. Local development answers show their own timings in Inspect."/>:error?<ErrorPanel message={error}/>:!data?<Loading/>:<><p className="micro-muted">Your account · last {data.days.length||0} active days, up to 31 days. Estimates cover measured model calls, not your AWS bill.</p><div className="usage-grid"><Metric label="ANSWERS" value={total('answers')}/><Metric label="MODEL TOKENS" value={(total('input_tokens')+total('output_tokens')).toLocaleString()}/><Metric label="ESTIMATED API COST" value={'$'+(total('estimated_cost_micros')/1e6).toFixed(4)}/><Metric label="FILES INDEXED" value={total('indexed_files')}/></div><div className="usage-details"><p><span>Mean answer latency</span><strong>{total('answers')?(total('latency_ms')/total('answers')/1000).toFixed(1)+'s':'—'}</strong></p><p><span>Insufficient-evidence answers</span><strong>{total('abstentions')}</strong></p><p><span>New chunk embeddings</span><strong>{total('embedded_chunks')}</strong></p><p><span>Chunk embeddings reused</span><strong>{total('reused_chunks')}</strong></p><p><span>Verified citation labels</span><strong>{total('valid_citations')}</strong></p></div><p className="micro-muted">Demo limits: 30 answers and 3 index jobs per user per day, up to 2 outstanding jobs per worker. Provider usage can be incomplete after an interrupted call; citation metrics check label presence.</p></>}</div></Dialog>
+}

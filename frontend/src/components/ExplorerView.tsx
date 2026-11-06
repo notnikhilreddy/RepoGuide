@@ -1,8 +1,9 @@
+import '../lib/monaco';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Editor, {type OnMount} from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
 import {AlertTriangle,Braces,ChevronDown,ChevronRight,Copy,ExternalLink,FileCode2,Folder,FolderOpen,Search} from 'lucide-react';
-import type {CodeSymbol,FileResponse,Repo,RepoFile} from '../lib/types';
+import type {CodeSymbol,FileResponse,Repo,RepoFile,AskContext} from '../lib/types';
 import {api} from '../lib/api';
 import {Empty,ErrorPanel,Loading,PaneTitle} from './Shared';
 
@@ -12,7 +13,7 @@ function buildTree(files:RepoFile[]):Dir{const root=mkDir('root','');for(const f
   for(const part of bits.slice(0,-1)){const path=[curr.path,part].filter(Boolean).join('/');if(!curr.dirs.has(part))curr.dirs.set(part,mkDir(part,path));curr=curr.dirs.get(part)!;}
   curr.files.push(f);
 }return root;}
-function language(path:string){const ext=path.split('.').pop()?.toLowerCase();return ({py:'python',ts:'typescript',tsx:'typescript',js:'javascript',jsx:'javascript',json:'json',md:'markdown',yml:'yaml',yaml:'yaml',toml:'ini',sql:'sql',css:'css',html:'html'} as Record<string,string>)[ext||'']||'plaintext';}
+function language(path:string){const ext=path.split('.').pop()?.toLowerCase();return ({py:'python',ts:'typescript',tsx:'typescript',js:'javascript',jsx:'javascript',json:'json',md:'markdown',yml:'yaml',yaml:'yaml',toml:'ini',sql:'sql',css:'css',html:'html',tf:'hcl',sh:'shell',bash:'shell',go:'go',rs:'rust',java:'java'} as Record<string,string>)[ext||'']||'plaintext';}
 function Branch({dir,selected,onChoose,filter,depth=0}:{dir:Dir;selected?:string;onChoose:(path:string)=>void;filter:string;depth?:number}){
   const [expanded,setExpanded]=useState(depth===0||depth===1||!!filter);
   const children=[...dir.dirs.values()].sort((a,b)=>a.name.localeCompare(b.name));
@@ -22,7 +23,7 @@ function Branch({dir,selected,onChoose,filter,depth=0}:{dir:Dir;selected?:string
     {(expanded||!!filter)&&<>{children.filter(d=>hasMatches(d)).map(d=><Branch key={d.path} dir={d} selected={selected} onChoose={onChoose} filter={filter} depth={depth+1}/>)}{files.sort((a,b)=>a.path.localeCompare(b.path)).map(f=><button key={f.path} onClick={()=>onChoose(f.path)} title={f.path} className={'tree-row '+(selected===f.path?'selected':'')} style={{paddingLeft:24+(depth)*12}}><FileCode2 size={14}/><span>{f.path.split('/').pop()}</span>{!f.exact&&<i className="partial-indicator" title="Partial source"/>}</button>)}</>}
   </>
 }
-export function ExplorerView({repo,selectedFile,onSelectionChange}:{repo:Repo;selectedFile:{path:string;line?:number}|null;onSelectionChange:(value:{path:string;line?:number})=>void}){
+export function ExplorerView({repo,selectedFile,onSelectionChange,onAsk}:{repo:Repo;selectedFile:{path:string;line?:number}|null;onSelectionChange:(value:{path:string;line?:number})=>void;onAsk?:(context:AskContext)=>void}){
   const [files,setFiles]=useState<RepoFile[]>([]);const [content,setContent]=useState<FileResponse|null>(null);
   const [symbols,setSymbols]=useState<CodeSymbol[]>([]);const [fileError,setFileError]=useState('');const [loading,setLoading]=useState(true);const [loadingFile,setLoadingFile]=useState(false);
   const [search,setSearch]=useState('');const [copied,setCopied]=useState(false);
@@ -43,7 +44,7 @@ export function ExplorerView({repo,selectedFile,onSelectionChange}:{repo:Repo;se
     const line=selectedFile?.line;if(line){editor.revealLineInCenter(line);marks.current.set([{range:{startLineNumber:line,startColumn:1,endLineNumber:line,endColumn:1},options:{isWholeLine:true,className:'source-highlight'}}])}
   };
   const file=selectedFile?.path||'';
-  return <div className="page explorer-page entrance"><PaneTitle eyebrow="SOURCE EXPLORER" title="Code explorer" detail="Browse the exact indexed commit, inspect symbols, and follow source citations." right={<span className="tiny-count">{files.length} files</span>}/>
+  return <div className="page explorer-page entrance"><PaneTitle eyebrow="SOURCE EXPLORER" title="Code explorer" detail="Browse the exact indexed commit, inspect symbols, and follow source citations." right={<><span className="tiny-count">{files.length} files</span>{file&&onAsk&&<button className="subtle-btn" onClick={()=>{const selection=editorRef.current?.getSelection();const line=selection&&!selection.isEmpty()?selection.startLineNumber:selectedFile?.line||selection?.startLineNumber||0;const symbol=symbols.find(s=>line>=s.start_line&&line<=s.end_line);onAsk({id:crypto.randomUUID(),question:`Explain ${symbol?.qualified_name||file} and how it is used in this repository.`,focus:{path:file,...(symbol?{start_line:symbol.start_line,end_line:symbol.end_line}:selection&&!selection.isEmpty()?{start_line:selection.startLineNumber,end_line:selection.endLineNumber}:{})}})}}>Ask about this <ChevronRight size={14}/></button>}</>}/>
   {loading?<Loading label="Loading file tree…"/>:<div className="explorer-layout">
     <aside className="file-tree panel"><div className="section-heading"><h3>Files</h3><span className="tiny-count">{files.length}</span></div><div className="searchbox"><Search size={14}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Filter files…"/></div>
       <div className="tree-scroller">{files.length?<Branch dir={tree} selected={file} onChoose={path=>onSelectionChange({path})} filter={search.toLowerCase()}/>:<Empty title="No files" description="Refresh the repository index."/>}</div>

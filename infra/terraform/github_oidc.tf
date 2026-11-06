@@ -23,7 +23,31 @@ resource "aws_iam_role_policy" "github_ecr" {
     { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
     { Effect = "Allow", Action = ["ecr:BatchCheckLayerAvailability", "ecr:CompleteLayerUpload", "ecr:InitiateLayerUpload",
       "ecr:PutImage", "ecr:UploadLayerPart", "ecr:BatchGetImage"],
-    Resource = [aws_ecr_repository.api.arn, aws_ecr_repository.worker.arn] }
+    Resource = [for repository in aws_ecr_repository.workers : repository.arn] }
   ] })
 }
 output "github_ecr_role_arn" { value = var.github_oidc_subject != "" ? aws_iam_role.github_deploy[0].arn : null }
+
+# Read-only baseline/evaluation role. It cannot publish or deploy a release.
+resource "aws_iam_role" "github_evaluate" {
+  count = var.github_oidc_subject != "" ? 1 : 0
+  name  = "${local.name}-github-evaluation"
+  assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{
+    Effect    = "Allow", Action = "sts:AssumeRoleWithWebIdentity",
+    Principal = { Federated = aws_iam_openid_connect_provider.github[0].arn },
+    Condition = { StringEquals = {
+      "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com",
+      "token.actions.githubusercontent.com:sub" = "repo:notnikhilreddy/RepoGuide:environment:quality"
+    } }
+  }] })
+}
+resource "aws_iam_role_policy" "github_evaluate" {
+  count = var.github_oidc_subject != "" ? 1 : 0
+  role  = aws_iam_role.github_evaluate[0].id
+  policy = jsonencode({ Version = "2012-10-17", Statement = [
+    { Effect = "Allow", Action = ["s3:GetObject"], Resource = "${aws_s3_bucket.artifacts.arn}/baselines/*" },
+    { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
+    { Effect = "Allow", Action = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"], Resource = [for repository in aws_ecr_repository.workers : repository.arn] }
+  ] })
+}
+output "github_evaluation_role_arn" { value = var.github_oidc_subject != "" ? aws_iam_role.github_evaluate[0].arn : null }

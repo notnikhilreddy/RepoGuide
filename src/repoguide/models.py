@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import VECTOR
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from repoguide.config import settings
@@ -21,6 +21,11 @@ class Repository(Base):
     url: Mapped[str] = mapped_column(Text, nullable=False)
     commit_sha: Mapped[str] = mapped_column(String(40), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="indexing")
+    owner_sub: Mapped[str] = mapped_column(
+        String(128), nullable=False, default="", server_default=""
+    )
+    parent_repo_id: Mapped[str | None] = mapped_column(String(36))
+    index_metadata: Mapped[dict | None] = mapped_column(JSON)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -32,7 +37,8 @@ class Repository(Base):
         UniqueConstraint(
             "url",
             "commit_sha",
-            name="uq_repository_url_commit",
+            "owner_sub",
+            name="uq_repository_owner_url_commit",
         ),
     )
 

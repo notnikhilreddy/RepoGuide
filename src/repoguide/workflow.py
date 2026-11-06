@@ -6,7 +6,7 @@ import asyncio
 import re
 from functools import lru_cache
 from typing import TypedDict
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from langgraph.graph import END, START, StateGraph
 from sqlalchemy import select
@@ -23,8 +23,16 @@ from repoguide.external_tools_v2 import (
     github_issue,
     github_readme,
 )
-from repoguide.hybrid import search
+from repoguide.hybrid import rerank_hits, search
 from repoguide.models import RepoDependency, Repository
+from repoguide.retrieval_context import (
+    bounded_history,
+    diverse,
+    focused_chunks,
+    neighbors,
+    retrieval_question,
+    supporting_source,
+)
 from repoguide.retrieval_exact import exact_symbols
 from repoguide.router import decide
 from repoguide.telemetry import record, span
@@ -47,9 +55,19 @@ class EvidenceState(TypedDict, total=False):
     docs_sources: list[dict]
     errors: list[str]
     trace: list[str]
+    history: list[dict]
+    focus: dict
+    diagnostics: dict
+    progress: object
+    tenant: str
 
 
 def retrieve_node(state: EvidenceState) -> dict:
+    progress = state.get("progress")
+    if progress:
+        progress("retrieval", 10, "Searching indexed source and symbols")
+    history = bounded_history(state.get("history", []))
+    question = retrieval_question(state["question"], history, state.get("focus", {}))
     with span(
         "retrieval.hybrid",
         "RETRIEVER",
@@ -63,17 +81,52 @@ def retrieve_node(state: EvidenceState) -> dict:
             hits = search(
                 session=session,
                 repo_id=state["repo_id"],
-                question=state["question"],
-                top_k=state["top_k"],
-                retrieval_mode=state.get("retrieval_mode", "hybrid"),
+                question=question,
+                top_k=min(20, state["top_k"] * 3),
+                retrieval_mode=state.get("retrieval_mode", "hybrid").replace(
+                    "_rerank", ""
+                ),
             )
             exact = exact_symbols(session, state["repo_id"], state["question"])
             seen = set()
+            focus = focused_chunks(session, state["repo_id"], state.get("focus", {}))
+            related = (
+                neighbors(session, state["repo_id"], exact + focus + hits)
+                if "hybrid" in state.get("retrieval_mode", "hybrid")
+                else []
+            )
             hits = [
                 h
-                for h in exact + hits
+                for h in focus + exact + hits + related
                 if not (h.chunk.id in seen or seen.add(h.chunk.id))
-            ][: state["top_k"]]
+            ][:36]
+            if "hybrid" in state.get("retrieval_mode", "hybrid"):
+                if progress:
+                    progress(
+                        "reranking",
+                        25,
+                        "Reranking candidates and checking related files",
+                    )
+                hits = rerank_hits(state["question"], hits)
+            support = (
+                supporting_source(
+                    session,
+                    state["repo_id"],
+                    hits,
+                    limit=min(2, max(0, state["top_k"] - 1)),
+                )
+                if state["top_k"] > 1
+                else []
+            )
+            candidates = hits + support
+            hits = diverse(hits, state["top_k"])
+            if support:
+                supporting_ids = {h.chunk.id for h in support}
+                hits = (
+                    hits[:1]
+                    + support
+                    + [h for h in hits[1:] if h.chunk.id not in supporting_ids]
+                )[: state["top_k"]]
             record(
                 active,
                 {"candidate_paths": [x.chunk.file_path for x in hits]},
@@ -89,7 +142,9 @@ def retrieve_node(state: EvidenceState) -> dict:
                 "CHAIN",
                 {"chunk_ids": [h.chunk.id for h in hits]},
             ) as pack_span:
-                packed = pack_context(hits, max_chars=settings.context_char_budget)
+                packed = pack_context(
+                    hits, max_chars=settings.context_char_budget, per_chunk_chars=2000
+                )
                 record(
                     pack_span,
                     {
@@ -113,6 +168,7 @@ def retrieve_node(state: EvidenceState) -> dict:
                     "distance": item.hit.distance,
                     "fusion_score": item.hit.fusion_score,
                     "rerank_score": item.hit.rerank_score,
+                    "excerpt": item.content[:1000],
                 }
             )
             sections.append(
@@ -122,6 +178,29 @@ def retrieve_node(state: EvidenceState) -> dict:
             "sources": sources,
             "repo_context": "\n\n---\n\n".join(sections),
             "trace": state.get("trace", []) + [f"retrieval: {len(sources)} chunks"],
+            "diagnostics": {
+                "query": question,
+                "candidate_count": len(candidates),
+                "selected_count": len(packed),
+                "context_chars": sum(len(p.content) for p in packed),
+                "candidates": [
+                    {
+                        "file_path": h.chunk.file_path,
+                        "start_line": h.chunk.start_line,
+                        "end_line": h.chunk.end_line,
+                        "symbol_name": h.chunk.symbol_name,
+                        "distance": h.distance,
+                        "fusion_score": h.fusion_score,
+                        "rerank_score": h.rerank_score,
+                        "channels": list(h.channels),
+                        "selected": any(p.hit.chunk.id == h.chunk.id for p in packed),
+                        "decision": "selected"
+                        if any(p.hit.chunk.id == h.chunk.id for p in packed)
+                        else "ranking, overlap or context budget",
+                    }
+                    for h in candidates
+                ],
+            },
         }
 
 
@@ -144,6 +223,20 @@ def dependency_node(state: EvidenceState) -> dict:
             "dependency_specs": specs,
             "repo_url": repo.url,
             "commit_sha": repo.commit_sha,
+            "sources": [
+                {
+                    **s,
+                    "repo_id": repo.id,
+                    "commit_sha": repo.commit_sha,
+                    "url": repo.url
+                    + "/blob/"
+                    + repo.commit_sha
+                    + "/"
+                    + quote(s["file_path"], safe="/")
+                    + f"#L{s['start_line']}-L{s['end_line']}",
+                }
+                for s in state.get("sources", [])
+            ],
         }
         record(
             active,
@@ -154,11 +247,20 @@ def dependency_node(state: EvidenceState) -> dict:
 
 
 def route_node(state: EvidenceState) -> dict:
+    if state.get("progress"):
+        state["progress"](
+            "routing", 40, "Checking evidence sufficiency and documentation needs"
+        )
     plan = decide(
-        state["question"],
+        retrieval_question(
+            state["question"],
+            bounded_history(state.get("history", [])),
+            state.get("focus", {}),
+        ),
         state.get("sources", []),
         state.get("dependencies", []),
         state.get("docs_policy", "auto"),
+        dependency_specs=state.get("dependency_specs", {}),
     )
     return {
         "routing": plan.model_dump(),
@@ -172,11 +274,18 @@ def external_or_finish(state: EvidenceState):
 
 
 def external_node(state: EvidenceState) -> dict:
+    if state.get("progress"):
+        state["progress"]("mcp", 50, "Reading relevant external documentation")
+
     async def calls():
         results = []
         errors = []
         route = state["routing"]
-        question = state["question"]
+        question = retrieval_question(
+            state["question"],
+            bounded_history(state.get("history", [])),
+            state.get("focus", {}),
+        )
         if "context7" in route["tools"]:
             for dep in route.get("dependencies", [])[:2]:
                 try:
@@ -194,6 +303,7 @@ def external_node(state: EvidenceState) -> dict:
                             "context7",
                             {
                                 "dependency": dep,
+                                "tenant": state.get("tenant", "local"),
                                 "question": question[:400],
                                 "version": state.get("dependency_specs", {}).get(
                                     dep, ""
@@ -208,7 +318,14 @@ def external_node(state: EvidenceState) -> dict:
                         else:
                             item = await context7_docs(
                                 Context7Lookup(
-                                    library_name=dep, question=question[:400]
+                                    library_name=dep,
+                                    question=(
+                                        question[:300]
+                                        + "\nRepository dependency version: "
+                                        + state.get("dependency_specs", {}).get(
+                                            dep, "unspecified"
+                                        )[:60]
+                                    )[:400],
                                 )
                             )
                             save_tool(key, item.__dict__, ttl=1800)
@@ -272,6 +389,8 @@ def external_node(state: EvidenceState) -> dict:
                 "title": item.title,
                 "url": item.url,
                 "provider": item.provider,
+                "source_urls": list(item.source_urls),
+                "declared_version": state.get("dependency_specs", {}).get(item.library),
             }
         )
         excerpts.append(
@@ -279,7 +398,7 @@ def external_node(state: EvidenceState) -> dict:
                 "label": label,
                 "title": item.title,
                 "url": item.url,
-                "excerpt": item.excerpt[:6500],
+                "excerpt": item.excerpt[:3000],
                 "provider": item.provider,
             }
         )
@@ -319,6 +438,9 @@ def gather_evidence(
     top_k: int = 8,
     docs_policy: str = "auto",
     retrieval_mode: str = "hybrid",
+    history: list[dict] | None = None,
+    focus: dict | None = None,
+    tenant: str = "local",
 ) -> EvidenceState:
     if not 1 <= top_k <= 20:
         raise ValueError("top_k must be 1..20")
@@ -330,5 +452,8 @@ def gather_evidence(
             "docs_policy": docs_policy,
             "retrieval_mode": retrieval_mode,
             "trace": [],
+            "history": bounded_history(history),
+            "tenant": tenant,
+            "focus": focus or {},
         }
     )

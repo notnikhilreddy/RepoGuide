@@ -1,10 +1,5 @@
-"""FastAPI on AWS Lambda via Mangum; imports happen after SSM hydration."""
+"""Compatibility entrypoint for the lightweight Python ZIP handler."""
 
-from repoguide.cloud_bootstrap import hydrate_runtime_env
+from repoguide.cloud_api import handler
 
-hydrate_runtime_env()
-from mangum import Mangum  # noqa: E402
-
-from repoguide.main import app  # noqa: E402
-
-handler = Mangum(app, lifespan="auto")
+__all__ = ["handler"]

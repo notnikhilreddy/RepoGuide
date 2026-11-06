@@ -16,6 +16,14 @@ def exact_symbols(
     session: Session, repo_id: str, question: str, limit: int = 4
 ) -> list[SearchHit]:
     identifiers = re.findall(r"`([A-Za-z_]\w{2,80})`", question)
+    identifiers = list(
+        dict.fromkeys(
+            identifiers
+            + re.findall(
+                r"\b(?:[A-Za-z]\w*_[A-Za-z_]\w*|[A-Z][a-z]+[A-Z]\w*)\b", question
+            )
+        )
+    )[:8]
     if not identifiers:
         return []
     with span(

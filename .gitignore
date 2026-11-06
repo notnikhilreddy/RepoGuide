@@ -25,6 +25,7 @@ evals/*_answers.jsonl
 infra/terraform/.terraform/
 infra/terraform/*.tfstate*
 infra/terraform/terraform.tfvars
+infra/terraform/*.auto.tfvars.json
 infra/terraform/*backup*
 frontend/.env.production
 
@@ -39,3 +40,15 @@ frontend/.env.production
 infra/terraform/*.tfplan
 infra/terraform/plan.txt
 Untitled
+.vercel
+.env*
+!.env.example
+!.env.deploy.example
+!frontend/.env.production.example
+.artifacts/
+reports/
+deployment/*.zip
+deployment/*.tar
+infra/terraform/*-plan.json
+
+frontend/dist-e2e-*/

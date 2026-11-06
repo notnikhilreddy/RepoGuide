@@ -1,125 +1,51 @@
-import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
-import { Activity, ArrowRight, BookOpenText, Braces, ChartNoAxesColumnIncreasing, ChevronsUpDown,
-  Command, Database, GitBranch, Github, LayoutDashboard, Menu, Moon, Plus, Search, Sun, TerminalSquare,
-  X, Layers3, LoaderCircle } from 'lucide-react';
-import { api } from './lib/api';
-import {authEnabled,authManager} from './lib/auth';
-import type { Repo, RepoFile } from './lib/types';
-import { Dialog, Empty, ErrorPanel, Status } from './components/Shared';
-import { OverviewView } from './components/OverviewView';
-const GraphView = lazy(() => import('./components/GraphView').then(module => ({ default: module.GraphView })));
-const ExplorerView = lazy(() => import('./components/ExplorerView').then(module => ({ default: module.ExplorerView })));
-import { ChatView } from './components/ChatView';
-import { DependenciesView } from './components/DependenciesView';
-const EvaluationView = lazy(() => import('./components/EvaluationView').then(module => ({ default: module.EvaluationView })));
-import { IndexView } from './components/IndexView';
-
+import {lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
+import {Activity,ArrowRight,BookOpenText,Braces,ChartNoAxesColumnIncreasing,Command,GitBranch,Github,LayoutDashboard,Layers3,LoaderCircle,Menu,Moon,Plus,Search,Sun,TerminalSquare} from 'lucide-react';
+import {api,hosted} from './lib/api';
+import {authEnabled,signOut} from './lib/auth';
+import type {AskContext,ConversationSummary,Job,Repo,RepoFile} from './lib/types';
+import {Empty,ErrorPanel} from './components/Shared';
+import {OverviewView} from './components/OverviewView';
+import {ChatView} from './components/ChatView';
+import {DependenciesView} from './components/DependenciesView';
+import {IndexView} from './components/IndexView';
+import {ComputeControls} from './components/ComputeControls';
+import {CommandPalette} from './components/CommandPalette';
+import {UsagePanel} from './components/UsagePanel';
+const GraphView=lazy(()=>import('./components/GraphView').then(m=>({default:m.GraphView})));
+const ExplorerView=lazy(()=>import('./components/ExplorerView').then(m=>({default:m.ExplorerView})));
+const EvaluationView=lazy(()=>import('./components/EvaluationView').then(m=>({default:m.EvaluationView})));
 export type View='overview'|'architecture'|'explorer'|'ask'|'dependencies'|'evaluation'|'indexing';
-const navigation: {id:View;label:string;icon:typeof Activity;hint?:string}[]=[
-  {id:'overview',label:'Overview',icon:LayoutDashboard},
-  {id:'architecture',label:'Architecture',icon:GitBranch},
-  {id:'explorer',label:'Code explorer',icon:Braces},
-  {id:'ask',label:'Ask RepoGuide',icon:BookOpenText},
-  {id:'dependencies',label:'Dependencies',icon:Layers3},
-  {id:'evaluation',label:'Evaluation Lab',icon:ChartNoAxesColumnIncreasing},
-  {id:'indexing',label:'Indexing',icon:Activity},
-];
+const pages:{id:View;label:string;icon:typeof Activity}[]=[{id:'overview',label:'Overview',icon:LayoutDashboard},{id:'architecture',label:'Architecture',icon:GitBranch},{id:'explorer',label:'Code explorer',icon:Braces},{id:'ask',label:'Conversations',icon:BookOpenText},{id:'dependencies',label:'Dependencies',icon:Layers3},{id:'evaluation',label:'Evaluation reports',icon:ChartNoAxesColumnIncreasing},{id:'indexing',label:'Index a repository',icon:Plus}];
 
 export default function App(){
-  const [view,setView]=useState<View>('overview');
-  const [repos,setRepos]=useState<Repo[]>([]);
-  const [repoId,setRepoId]=useState<string>(()=>localStorage.getItem('rg.repo')||'');
-  const [repoError,setRepoError]=useState('');
-  const [filePalette,setFilePalette]=useState<RepoFile[]>([]);
-  const [loadingRepos,setLoadingRepos]=useState(true);
-  const [repoDropdown,setRepoDropdown]=useState(false);
-  const [command,setCommand]=useState(false);
-  const [commandFilter,setCommandFilter]=useState('');
-  const [selectedFile,setSelectedFile]=useState<{path:string;line?:number}|null>(null);
+  const [view,setView]=useState<View>('overview'),[repos,setRepos]=useState<Repo[]>([]),[repoId,setRepoId]=useState(()=>localStorage.getItem('rg.repo')||''),[repoError,setRepoError]=useState(''),[loading,setLoading]=useState(true),[repoDropdown,setRepoDropdown]=useState(false),[command,setCommand]=useState(false),[usage,setUsage]=useState(false),[mobile,setMobile]=useState(false);
+  const [files,setFiles]=useState<RepoFile[]>([]),[chats,setChats]=useState<ConversationSummary[]>([]),[selectedFile,setSelectedFile]=useState<{path:string;line?:number}|null>(null),[context,setContext]=useState<AskContext|null>(null),[conversationId,setConversationId]=useState<string|null>(null),[initialJob,setInitialJob]=useState<Job|null>(null);
   const [theme,setTheme]=useState<'dark'|'light'>(()=>localStorage.getItem('rg.theme')==='light'?'light':'dark');
-  const [mobileMenu,setMobileMenu]=useState(false);
-
-  const refreshRepos=useCallback(async()=>{
-    try{const items=await api.repos();setRepos(items);setRepoError('');
-      setRepoId(prev=>{const found=items.some(x=>x.id===prev);return found?prev:items[0]?.id||'';});
-    }catch(e){setRepoError(e instanceof Error?e.message:'Could not connect to API');}
-    finally{setLoadingRepos(false)}
-  },[]);
-  useEffect(()=>{void refreshRepos()},[refreshRepos]);
-  useEffect(()=>{let live=true;if(repoId)api.files(repoId).then(x=>{if(live)setFilePalette(x)}).catch(()=>{if(live)setFilePalette([])});return()=>{live=false}},[repoId]);
+  const repoList=useRef(repos);repoList.current=repos;
+  const refresh=useCallback(async()=>{try{const items=await api.repos();setRepos(items);setRepoError('');setRepoId(current=>items.some(r=>r.id===current)?current:items[0]?.id||'')}catch(e){setRepoError(e instanceof Error?e.message:'Could not connect to API')}finally{setLoading(false)}},[]);
+  useEffect(()=>{void refresh()},[refresh]);
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('rg.theme',theme)},[theme]);
   useEffect(()=>{if(repoId)localStorage.setItem('rg.repo',repoId)},[repoId]);
-  useEffect(()=>{const handler=(e:KeyboardEvent)=>{
-    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setCommand(v=>!v)}
-    if(e.key==='Escape'){setCommand(false);setRepoDropdown(false);setMobileMenu(false)}
-  };window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler)},[]);
+  useEffect(()=>{const handler=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setCommand(v=>!v)}if(e.key==='Escape'){setRepoDropdown(false);setMobile(false)}};window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler)},[]);
+  useEffect(()=>{if(!command)return;let live=true;void api.conversations().then(items=>{if(live)setChats(items)}).catch(()=>{});if(repoId)void api.files(repoId).then(items=>{if(live)setFiles(items)}).catch(()=>{if(live)setFiles([])});return()=>{live=false}},[command,repoId]);
+  useEffect(()=>{if(!hosted)return;let live=true;let timer:number;let index=0;
+    async function check(){if(!document.hidden&&repoList.current.length){const next=repoList.current[index++%repoList.current.length];try{const update=await api.checkUpdate(next.id);if(live)setRepos(current=>current.map(r=>r.id===next.id?{...r,...update}:r))}catch{/* A failed HTTP check is surfaced on the affected repository. */if(live)setRepos(current=>current.map(r=>r.id===next.id?{...r,freshness_status:'error',check_error:'Update check unavailable'}:r))}}
+      if(live)timer=window.setTimeout(()=>void check(),60000)
+    }
+    timer=window.setTimeout(()=>void check(),10000);return()=>{live=false;clearTimeout(timer)}
+  },[]);
   const repo=repos.find(r=>r.id===repoId);
-  const jumpToFile=(path:string,line?:number)=>{setSelectedFile({path,line});setView('explorer')};
-  const chooseView=(next:View)=>{setView(next);setMobileMenu(false);setCommand(false)};
-  const selectRepo=(id:string)=>{setRepoId(id);setSelectedFile(null);setRepoDropdown(false);setCommand(false)};
-  const navResults=navigation.filter(n=>n.label.toLowerCase().includes(commandFilter.toLowerCase()));
-  const repoResults=repos.filter(r=>r.name.toLowerCase().includes(commandFilter.toLowerCase()));
-  const fileResults=commandFilter?filePalette.filter(f=>f.path.toLowerCase().includes(commandFilter.toLowerCase())).slice(0,12):[];
-  return <div className="app-shell">
-    <aside className={'sidebar '+(mobileMenu?'sidebar-open':'')}>
-      <div className="brand"><div className="brand-mark"><TerminalSquare size={19} strokeWidth={2.2}/></div><span>RepoGuide</span><small>WORKSPACE</small></div>
-      <div className="side-section-label">WORKSPACE</div>
-      <div className="repo-select-wrap">
-        <button className="repo-selector" onClick={()=>setRepoDropdown(v=>!v)} aria-expanded={repoDropdown}>
-          <div className="repo-avatar"><Github size={16}/></div>
-          <span className="repo-current"><b>{repo?.name.split('/').pop()||'Select repository'}</b><small>{repo?.name.split('/')[0]||'No active repo'}</small></span>
-          <ChevronsUpDown size={15}/>
-        </button>
-        {repoDropdown&&<div className="repo-dropdown">
-          {repos.map(r=><button key={r.id} className={r.id===repoId?'active':''} onClick={()=>selectRepo(r.id)}><Github size={15}/><span>{r.name}</span><Status status={r.status}/></button>)}
-          {repos.length===0&&<p className="dropdown-empty">No indexed repositories</p>}
-          <button onClick={()=>{setRepoDropdown(false);chooseView('indexing')}}><Plus size={15}/>Index a repository</button>
-        </div>}
-      </div>
-      <nav className="sidebar-nav" aria-label="Main navigation">
-        <div className="side-section-label">EXPLORE</div>
-        {navigation.map(({id,label,icon:Icon})=><button key={id} onClick={()=>chooseView(id)} className={'nav-link '+(id===view?'active':'')}><Icon size={17}/><span>{label}</span>{id===view&&<div className="nav-indicator"/>}</button>)}
-      </nav>
-      <div className="sidebar-spacer"/>
-      <button className="command-shortcut" onClick={()=>{setCommand(true);setCommandFilter('')}}><Search size={16}/><span>Quick search</span><kbd>⌘ K</kbd></button>
-      <div className="side-footer"><span className="live-dot"/> <span>{import.meta.env.VITE_API_BASE_URL ? "Cloud workspace" : "Local workspace"}</span><small>v0.7.0</small></div>
-    </aside>
-    <div className="main-shell">
-      <header className="topbar">
-        <button className="icon-btn mobile-toggle" onClick={()=>setMobileMenu(v=>!v)} aria-label="Toggle menu"><Menu size={19}/></button>
-        <div className="breadcrumbs"><span>Workspace</span><span className="slash">/</span><span>{repo?.name||'No repository'}</span><span className="slash">/</span><strong>{navigation.find(n=>n.id===view)?.label}</strong></div>
-        <div className="topbar-actions">
-          {repo&&<div className="commit-chip" title={repo.commit_sha}><GitBranch size={13}/>{repo.commit_sha.slice(0,7)}</div>}
-          <button className="icon-btn" title="Toggle theme" onClick={()=>setTheme(t=>t==='dark'?'light':'dark')}>{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button>
-          <a className="icon-btn" href={import.meta.env.VITE_MLFLOW_URL || "http://127.0.0.1:5000"} target="_blank" rel="noreferrer" title="Open local MLflow"><Database size={17}/></a>
-          {authEnabled&&<button className="icon-btn" title="Sign out" onClick={()=>void authManager?.signoutRedirect()}><span style={{fontSize:11}}>Sign out</span></button>}
-        </div>
-      </header>
-      {repoError&&<div className="api-banner"><ErrorPanel message={`Backend connection: ${repoError}`} retry={()=>void refreshRepos()}/></div>}
-      <main className="workspace">
-        <Suspense fallback={<div className="empty"><LoaderCircle className="spin"/><p>Loading view…</p></div>}>
-        {view==='indexing'?<IndexView initialUrl={repo?.url||''} onFinished={async id=>{await refreshRepos();setRepoId(id);chooseView('overview')}}/>:
-         !repo ? (loadingRepos?<div className="empty"><LoaderCircle className="spin"/><p>Connecting to RepoGuide…</p></div>:<Empty title="Your workspace is ready" description="Index your first GitHub repository to explore its architecture and ask grounded questions." action={<button className="primary-btn" onClick={()=>chooseView('indexing')}><Plus size={15}/>Index a repository<ArrowRight size={15}/></button>}/>) :
-         <div key={repoId} className="view-frame">
-          {view==='overview'&&<OverviewView repo={repo} onOpen={chooseView} onFile={jumpToFile}/>}
-          {view==='architecture'&&<GraphView repo={repo} onFile={jumpToFile}/>}
-          {view==='explorer'&&<ExplorerView repo={repo} selectedFile={selectedFile} onSelectionChange={setSelectedFile}/>}
-          {view==='ask'&&<ChatView repo={repo} onFile={jumpToFile}/>}
-          {view==='dependencies'&&<DependenciesView repo={repo} onFile={jumpToFile}/>}
-          {view==='evaluation'&&<EvaluationView repo={repo}/>}
-         </div>}
-        </Suspense>
-      </main>
-    </div>
-    {command&&<Dialog title="Go to…" onClose={()=>setCommand(false)}>
-      <div className="palette-search"><Search size={17}/><input autoFocus value={commandFilter} onChange={e=>setCommandFilter(e.target.value)} placeholder="Search pages and repositories…"/></div>
-      <div className="palette-list"><div className="side-section-label">PAGES</div>
-        {navResults.map(x=><button key={x.id} onClick={()=>chooseView(x.id)}><x.icon size={17}/>{x.label}<ArrowRight size={14}/></button>)}
-        <div className="side-section-label">REPOSITORIES</div>
-        {repoResults.map(r=><button key={r.id} onClick={()=>selectRepo(r.id)}><Github size={16}/>{r.name}<ArrowRight size={14}/></button>)}
-        {fileResults.length>0&&<><div className="side-section-label">FILES IN CURRENT REPO</div>{fileResults.map(f=><button key={f.path} onClick={()=>{jumpToFile(f.path);setCommand(false)}}><Braces size={15}/>{f.path}<ArrowRight size={14}/></button>)}</>}
-      </div><div className="palette-footer"><kbd>ESC</kbd> to close</div>
-    </Dialog>}
-    {mobileMenu&&<button className="mobile-scrim" onClick={()=>setMobileMenu(false)} aria-label="Close menu"/>}
-  </div>
+  const chooseView=(next:View)=>{setView(next);setMobile(false);setCommand(false)};
+  const selectRepo=(id:string)=>{setRepoId(id);setSelectedFile(null);setConversationId(null);setContext(null);setRepoDropdown(false);setCommand(false)};
+  const openFile=(path:string,line?:number)=>{setSelectedFile({path,line});chooseView('explorer')};
+  const ask=(request:AskContext)=>{setContext(request);chooseView('ask')};
+  const selectConversation=useCallback((id:string)=>setConversationId(id||null),[]);
+  async function openChat(chat:ConversationSummary){if(!repos.some(r=>r.id===chat.repo_id)){try{const o=await api.overview(chat.repo_id);setRepos(current=>[...current,{...o,name:new URL(o.url).pathname.slice(1),counts:o.counts}])}catch(e){setRepoError(e instanceof Error?e.message:'Conversation repository unavailable');return}}selectRepo(chat.repo_id);setConversationId(chat.id);chooseView('ask')}
+  async function updateIndex(){if(!repo)return;try{setInitialJob(await api.updateIndex(repo.id));chooseView('indexing')}catch(e){setRepoError(e instanceof Error?e.message:'Could not update index')}}
+  function patchRepo(values:Partial<Repo>){setRepos(current=>current.map(r=>r.id===repoId?{...r,...values}:r))}
+
+  return <div className="app-shell"><aside className={'sidebar '+(mobile?'sidebar-open':'')}><div className="brand"><div className="brand-mark"><TerminalSquare size={19}/></div><span>RepoGuide</span><small>WORKSPACE</small></div><div className="side-section-label">REPOSITORY</div><div className="repo-select-wrap"><button className="repo-selector" aria-expanded={repoDropdown} onClick={()=>setRepoDropdown(v=>!v)}><div className="repo-avatar"><Github size={16}/></div><span className="repo-current"><b>{repo?.name.split('/').pop()||'Select repository'}</b><small>{repo?.name.split('/')[0]||'Your workspace'}</small></span><ChevronIcon/></button>{repoDropdown&&<div className="repo-dropdown">{repos.map(r=><button key={r.id} className={r.id===repoId?'active':''} onClick={()=>selectRepo(r.id)}><Github size={14}/><span>{r.name}</span>{r.freshness_status==='update_available'&&<small className="update-dot" title="Update available"/>}{r.visibility==='private'&&<small>Private</small>}</button>)}<button onClick={()=>{setInitialJob(null);setRepoDropdown(false);chooseView('indexing')}}><Plus size={14}/>Index a repository</button></div>}</div><nav className="sidebar-nav" aria-label="Main navigation"><div className="side-section-label">EXPLORE</div>{pages.slice(0,4).map(({id,label,icon:Icon})=><button key={id} className={'nav-link '+(view===id?'active':'')} onClick={()=>chooseView(id)}><Icon size={17}/><span>{label}</span>{view===id&&<span className="nav-indicator"/>}</button>)}</nav><button className="nav-link index-repo-link" onClick={()=>{setInitialJob(null);chooseView('indexing')}}><Plus size={16}/>Index repository</button><div className="sidebar-spacer"/><button className="command-shortcut" onClick={()=>setCommand(true)}><Search size={15}/><span>Quick navigation</span><kbd>⌘ K</kbd></button><div className="side-footer"><span className="live-dot"/>Source-grounded exploration</div></aside>
+    <div className="main-shell"><header className="topbar"><div className="breadcrumbs"><button className="icon-btn mobile-toggle" title="Open navigation" onClick={()=>setMobile(v=>!v)}><Menu size={17}/></button><span>{repo?.name||'Workspace'}</span><span className="slash">/</span><strong>{pages.find(p=>p.id===view)?.label}</strong></div><div className="topbar-actions"><ComputeControls/><button className="icon-btn" title="Your usage" onClick={()=>setUsage(true)}><ChartNoAxesColumnIncreasing size={16}/></button><button className="icon-btn" title="Toggle theme" onClick={()=>setTheme(t=>t==='dark'?'light':'dark')}>{theme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button>{authEnabled&&<button className="subtle-btn signout-button" onClick={()=>void signOut()}>Sign out</button>}</div></header>{repoError&&<div className="api-banner"><ErrorPanel message={repoError} retry={()=>void refresh()}/></div>}<main className="workspace"><Suspense fallback={<div className="state"><LoaderCircle className="spin" size={18}/>Loading view…</div>}>{view==='indexing'?<IndexView initialUrl={repo?.url||''} initialJob={initialJob} onFinished={async id=>{await refresh();setRepoId(id);setInitialJob(null);chooseView('overview')}}/>:!repo?loading?<div className="empty"><LoaderCircle className="spin"/><p>Opening your workspace…</p></div>:<Empty title="A new perspective on your code" description="Select a demo repository or index a public GitHub repository to begin." action={<button className="primary-btn" onClick={()=>chooseView('indexing')}><Plus size={15}/>Index a repository<ArrowRight size={15}/></button>}/>:<div key={repo.id} className="view-frame">{view==='overview'&&<OverviewView repo={repo} onOpen={chooseView} onFile={openFile} onAsk={ask} onUpdate={()=>void updateIndex()} onRepoChange={patchRepo}/>} {view==='architecture'&&<GraphView repo={repo} onFile={openFile} onAsk={ask}/>} {view==='explorer'&&<ExplorerView repo={repo} selectedFile={selectedFile} onSelectionChange={setSelectedFile} onAsk={ask}/>} {view==='ask'&&<ChatView repo={repo} onFile={openFile} context={context} selectedConversation={conversationId} onConversation={selectConversation}/>} {view==='dependencies'&&<DependenciesView repo={repo} onFile={openFile}/>} {view==='evaluation'&&<EvaluationView repo={repo}/>}</div>}</Suspense></main></div>
+    {command&&<CommandPalette repos={repos} files={files} chats={chats} actions={[...pages.map(p=>({id:p.id,label:p.label,run:()=>chooseView(p.id)})),{id:'usage',label:'Your usage',run:()=>setUsage(true)},{id:'theme',label:'Toggle theme',run:()=>setTheme(t=>t==='dark'?'light':'dark')}]} onRepo={selectRepo} onFile={openFile} onChat={chat=>void openChat(chat)} onClose={()=>setCommand(false)}/>}{usage&&<UsagePanel onClose={()=>setUsage(false)}/>} {mobile&&<button className="mobile-scrim" aria-label="Close navigation" onClick={()=>setMobile(false)}/>}</div>
 }
+function ChevronIcon(){return <span className="repo-chevron" aria-hidden="true">⌄</span>}

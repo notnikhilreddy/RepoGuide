@@ -1,13 +1,21 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     database_url: str
 
-    llm_provider: Literal["gemini", "opencode", "ollama"] = "gemini"
+    llm_provider: Literal["gemini", "openai", "opencode", "ollama"] = "gemini"
+
+    openai_api_key: str = ""
+    openai_model: str = "gpt-6-luna"
+    openai_service_tier: Literal["default"] = "default"
+    openai_reasoning_effort: Literal["none", "low", "medium"] = "low"
+    openai_max_output_tokens: int = Field(default=2000, ge=256, le=3500)
+    openai_max_input_chars: int = Field(default=32000, ge=1024, le=64000)
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.8-flash"

@@ -1,0 +1,8 @@
+import type {Architecture,GraphData,RepoFile} from './types';
+export function localArchitecture(graph:GraphData,files:RepoFile[],scope:string):Architecture{
+  const groups=new Map<string,Architecture['nodes'][number]>();const membership=new Map<string,string>();
+  for(const file of files){const relative=scope&&scope!=='@root'?file.path.startsWith(scope+'/')?file.path.slice(scope.length+1):null:file.path;if(relative===null||(scope==='@root'&&relative.includes('/')))continue;const id=scope==='@root'?relative:scope?scope+'/'+relative.split('/')[0]:relative.includes('/')?relative.split('/')[0]:'@root';const kind=id==='@root'||relative.includes('/')?'module':'file';const node=groups.get(id)||{id,label:id==='@root'?'Repository files':id.split('/').pop()!,scope:id,kind,files:0,symbols:0,preview_path:file.path};node.files++;node.symbols+=graph.nodes.filter(n=>n.file_path===file.path).length;groups.set(id,node);membership.set(file.path,id)}
+  const byId=new Map(graph.nodes.map(n=>[n.id,n]));const edges=new Map<string,Architecture['edges'][number]>();
+  for(const edge of graph.edges){if(!edge.target||edge.kind==='contains')continue;const source=membership.get(byId.get(edge.source)?.file_path||''),target=membership.get(byId.get(edge.target)?.file_path||'');if(!source||!target||source===target)continue;const key=source+'|'+target+'|'+edge.kind;const row=edges.get(key)||{source,target,kind:edge.kind,count:0};row.count++;edges.set(key,row)}
+  return {scope,nodes:[...groups.values()].sort((a,b)=>a.label.localeCompare(b.label)),edges:[...edges.values()],truncated:false,total_nodes:groups.size};
+}
