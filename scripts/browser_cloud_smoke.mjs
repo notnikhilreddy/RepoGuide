@@ -75,6 +75,7 @@ try{
     await page.getByRole('button',{name:'Options',exact:true}).click();
     await page.locator('.conversation-options select').first().selectOption('never');
     await page.getByLabel('Ask a question').fill('How does index_repository commit database changes and roll back failures?');
+    execFileSync('.venv/bin/python',['scripts/acceptance_budget.py','browser-'+label],{stdio:'pipe'});
     await page.getByRole('button',{name:'Send question',exact:true}).click();
     await expect(page.locator('.conversation-assistant')).toBeVisible({timeout:180000});
     await expect(page.locator('.inline-citation').first()).toBeVisible();
@@ -91,6 +92,7 @@ try{
     report.checks.commit_pinned_citation_navigation=true;await page.keyboard.press('Escape');
     await page.getByRole('button',{name:'Helpful',exact:true}).click();await expect(page.getByText('Marked helpful')).toBeVisible();report.checks.linked_feedback=true;
     await page.reload();await page.getByRole('button',{name:'Conversations',exact:true}).click();await expect(page.locator('.conversation-assistant')).toBeVisible();report.checks.refresh_restores_answer=true;
+    execFileSync('.venv/bin/python',['scripts/acceptance_budget.py','browser-'+label+'-followup'],{stdio:'pipe'});
     await page.getByLabel('Ask a question').fill('What happens if that transaction fails?');await page.getByRole('button',{name:'Send question',exact:true}).click();await expect(page.locator('.conversation-assistant')).toHaveCount(2,{timeout:180000});report.checks.live_followup=true;
     await page.screenshot({path:'.artifacts/live-'+label+'-answer.png',fullPage:true});
   }

@@ -57,6 +57,13 @@ def main():
             raise SystemExit(
                 "A complete starting baseline is already protected; do not overwrite it"
             )
+        if (
+            previous.get("complete")
+            and previous.get("source_sha256") == config["source_sha256"]
+        ):
+            raise SystemExit(
+                "A complete measurement of this candidate is protected; do not reroll valid scores"
+            )
         import time
 
         archived = output / (args.phase + "-attempt-" + str(time.time_ns()) + ".json")

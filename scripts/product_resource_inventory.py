@@ -12,6 +12,97 @@ import boto3
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def regional_candidates(region, state_ids):
+    """Discover old names too; a name match is a review candidate, not ownership."""
+    session = boto3.Session(profile_name="repoguide", region_name=region)
+    result = {"region": region, "candidates": {}, "unavailable_checks": {}}
+
+    def record(kind, fetch):
+        try:
+            rows = fetch()
+            result["candidates"][kind] = [
+                {**row, "in_current_state": any(v in state_ids for v in row.values())}
+                for row in rows
+                if any("repoguide" in str(v).lower() for v in row.values())
+            ]
+        except Exception as error:
+            # Missing read permission is unresolved evidence, never absence.
+            result["unavailable_checks"][kind] = (
+                type(error).__name__
+                + ": "
+                + str(getattr(error, "response", {}).get("Error", {}).get("Code", ""))
+            )
+
+    def paged(service, operation, key, fields, **kwargs):
+        return [
+            {field: str(row.get(field, "")) for field in fields}
+            for page in session.client(service)
+            .get_paginator(operation)
+            .paginate(**kwargs)
+            for row in page.get(key, [])
+        ]
+
+    record(
+        "ecr_repositories",
+        lambda: paged(
+            "ecr",
+            "describe_repositories",
+            "repositories",
+            ["repositoryName", "repositoryArn"],
+        ),
+    )
+    record(
+        "lambda_functions",
+        lambda: paged(
+            "lambda",
+            "list_functions",
+            "Functions",
+            ["FunctionName", "FunctionArn", "PackageType"],
+        ),
+    )
+    record(
+        "http_apis",
+        lambda: paged("apigatewayv2", "get_apis", "Items", ["ApiId", "Name"]),
+    )
+    record(
+        "rest_apis",
+        lambda: paged("apigateway", "get_rest_apis", "items", ["id", "name"]),
+    )
+    record(
+        "queues",
+        lambda: [
+            {"url": url}
+            for page in session.client("sqs").get_paginator("list_queues").paginate()
+            for url in page.get("QueueUrls", [])
+        ],
+    )
+    record(
+        "tables",
+        lambda: [
+            {"name": name}
+            for page in session.client("dynamodb")
+            .get_paginator("list_tables")
+            .paginate()
+            for name in page["TableNames"]
+        ],
+    )
+    record(
+        "clusters",
+        lambda: [
+            {"arn": arn}
+            for page in session.client("ecs").get_paginator("list_clusters").paginate()
+            for arn in page["clusterArns"]
+        ],
+    )
+    record(
+        "schedules",
+        lambda: paged(
+            "scheduler", "list_schedules", "Schedules", ["Name", "Arn", "State"]
+        ),
+    )
+    return result
+
+
 def main():
     out = {
         k: v["value"]
@@ -85,9 +176,35 @@ def main():
     budgets = session.client("budgets", region_name="us-east-1").describe_budgets(
         AccountId=session.client("sts").get_caller_identity()["Account"]
     )["Budgets"]
+    state = json.loads(
+        subprocess.check_output(
+            ["terraform", "-chdir=" + str(ROOT / "infra/terraform"), "show", "-json"],
+            text=True,
+        )
+    )
+    state_resources = (
+        state.get("values", {}).get("root_module", {}).get("resources", [])
+    )
+    state_ids = {
+        str(value)
+        for resource in state_resources
+        for key, value in resource.get("values", {}).items()
+        if key in {"id", "arn", "name", "function_name", "repository_url", "url"}
+        and isinstance(value, str)
+    }
     report = {
         "observed_at": int(time.time()),
         "read_only": True,
+        "candidate_ownership_note": "Name matches only discover candidates. Current Terraform identity, dependencies, activity and recovery needs must all be verified before deletion; unresolved resources are retained.",
+        "regional_audit": [
+            regional_candidates(region, state_ids)
+            for region in ["us-east-2", "us-east-1"]
+        ],
+        "bucket_candidates": [
+            {"name": bucket["Name"], "in_current_state": bucket["Name"] in state_ids}
+            for bucket in s3.list_buckets()["Buckets"]
+            if "repoguide" in bucket["Name"].lower()
+        ],
         "services": [
             {
                 k: s[k]

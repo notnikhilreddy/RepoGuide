@@ -1,8 +1,8 @@
 """Collect sanitized deployment evidence without inventing absent acceptance.
 
 --require-complete requires live functional, cutover, rollback and cleanup
-evidence plus verified idle or the exact owner deferral. Neither skipped
-quality nor skipped idle is represented as a passing measurement.
+evidence plus the real idle test and product isolation/update checks. Skipped
+quality or historical acceptance evidence cannot satisfy this product release.
 """
 
 import argparse
@@ -27,13 +27,6 @@ native = read("aws-final-smoke.json")
 idle = read("aws-idle-verification.json")
 exception_path = root / "deployment/acceptance-exceptions.json"
 exceptions = json.loads(exception_path.read_text()) if exception_path.exists() else {}
-idle_skipped = (
-    exceptions.get("release_id") == manifest["release_id"]
-    and exceptions.get("idle_verification", {}).get("status") == "skipped_by_owner"
-    and idle
-    and idle.get("status") == "skipped_by_owner"
-    and idle.get("final_services_zero") is True
-)
 production = read("browser-production-smoke.json")
 security = read("aws-security-review.json")
 preservation = read("neon-deployment-preservation.json")
@@ -41,7 +34,25 @@ rollback = read("aws-component-rollback.json")
 cutover = read("vercel-cutover.json")
 cleanup = read("deployment-cleanup.json")
 drift = read("terraform-final-drift.json")
+
+
+def current_pass(name):
+    evidence = read(name) or {}
+    return bool(
+        evidence.get("passed") is True
+        and evidence.get("release_id") == manifest["release_id"]
+    )
+
+
 checks = {
+    "measured_quality_gate": manifest["quality"]["status"] == "passed",
+    "owner_scoped_s3_and_api": current_pass("product-live-api-smoke.json"),
+    "real_incremental_update_and_browser": current_pass(
+        "product-incremental-live-smoke.json"
+    ),
+    "published_measured_evaluations": current_pass("published-evaluation-catalog.json"),
+    "verified_unused_cloud_cleanup": current_pass("product-cloud-cleanup.json"),
+    "verified_unused_vercel_cleanup": current_pass("product-vercel-cleanup.json"),
     "native_exact_digest_functional": bool(
         native
         and native.get("passed")
@@ -57,9 +68,9 @@ checks = {
     ),
     "live_rate_limit": bool((read("aws-rate-verification.json") or {}).get("passed")),
     "original_neon_data_preserved": bool(preservation and preservation.get("passed")),
-    "idle_verification_resolved": bool(idle_skipped)
-    or bool(
+    "idle_verification_resolved": bool(
         idle
+        and idle.get("release_id") == manifest["release_id"]
         and idle.get("status") == "passed"
         and idle.get("minute_59_reset")
         and idle.get("final_services_zero")
@@ -116,7 +127,7 @@ report = {
     "cleanup": cleanup,
     "monitoring": read("aws-monitoring-review.json"),
     "known_secret_scan": read("source-secret-scan.json"),
-    "ci_evaluation": "skipped_by_owner; no CI success or quality baseline claimed",
+    "ci_evaluation": "No remote CI success claimed; paired local live evaluation and exact-image checks are recorded separately.",
     "cost": "planning estimate only; same-day billing incomplete; see docs/deployment/cost-estimate.md",
 }
 (root / "reports").mkdir(exist_ok=True)

@@ -18,6 +18,62 @@ import boto3
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def consumer_tasks(session):
+    """Include dormant services and schedules, which also need recovery images."""
+    ecs = session.client("ecs")
+    protected = set()
+    for page in ecs.get_paginator("list_clusters").paginate():
+        for cluster in page["clusterArns"]:
+            for page in ecs.get_paginator("list_services").paginate(cluster=cluster):
+                arns = page["serviceArns"]
+                for offset in range(0, len(arns), 10):
+                    protected.update(
+                        s["taskDefinition"]
+                        for s in ecs.describe_services(
+                            cluster=cluster, services=arns[offset : offset + 10]
+                        )["services"]
+                    )
+            for page in ecs.get_paginator("list_tasks").paginate(cluster=cluster):
+                arns = page["taskArns"]
+                for offset in range(0, len(arns), 100):
+                    protected.update(
+                        t["taskDefinitionArn"]
+                        for t in ecs.describe_tasks(
+                            cluster=cluster, tasks=arns[offset : offset + 100]
+                        )["tasks"]
+                    )
+    events = session.client("events")
+    for page in events.get_paginator("list_event_buses").paginate():
+        for bus in page["EventBuses"]:
+            for rules in events.get_paginator("list_rules").paginate(
+                EventBusName=bus["Name"]
+            ):
+                for rule in rules["Rules"]:
+                    for targets in events.get_paginator(
+                        "list_targets_by_rule"
+                    ).paginate(EventBusName=bus["Name"], Rule=rule["Name"]):
+                        protected.update(
+                            t["EcsParameters"]["TaskDefinitionArn"]
+                            for t in targets["Targets"]
+                            if t.get("EcsParameters")
+                        )
+    scheduler = session.client("scheduler")
+    for page in scheduler.get_paginator("list_schedules").paginate():
+        for summary in page["Schedules"]:
+            target = scheduler.get_schedule(
+                Name=summary["Name"], GroupName=summary["GroupName"]
+            )["Target"]
+            if target.get("EcsParameters"):
+                protected.add(target["EcsParameters"]["TaskDefinitionArn"])
+    # Resolve unversioned schedule references before comparing revision ARNs.
+    return {
+        ecs.describe_task_definition(taskDefinition=task)["taskDefinition"][
+            "taskDefinitionArn"
+        ]
+        for task in protected
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true")
@@ -61,26 +117,8 @@ def main():
     protected_tasks = set(definitions.values()) | {
         v["taskDefinition"] for v in initial["workers"].values()
     }
-    # Detect cross-cluster consumers before treating an image as unused. Even
-    # a stopped service is a live dependency; never change or retire it here.
-    for page in ecs.get_paginator("list_clusters").paginate():
-        for cluster in page["clusterArns"]:
-            for service_page in ecs.get_paginator("list_services").paginate(
-                cluster=cluster
-            ):
-                arns = service_page["serviceArns"]
-                for offset in range(0, len(arns), 10):
-                    consumers = ecs.describe_services(
-                        cluster=cluster, services=arns[offset : offset + 10]
-                    )["services"]
-                    protected_tasks.update(s["taskDefinition"] for s in consumers)
-            for task_page in ecs.get_paginator("list_tasks").paginate(cluster=cluster):
-                arns = task_page["taskArns"]
-                for offset in range(0, len(arns), 100):
-                    consumers = ecs.describe_tasks(
-                        cluster=cluster, tasks=arns[offset : offset + 100]
-                    )["tasks"]
-                    protected_tasks.update(t["taskDefinitionArn"] for t in consumers)
+    consumers = consumer_tasks(session)
+    protected_tasks.update(consumers)
     if live_tasks:
         protected_tasks |= {
             t["taskDefinitionArn"]
@@ -101,6 +139,16 @@ def main():
     for task in protected_tasks:
         definition = ecs.describe_task_definition(taskDefinition=task)["taskDefinition"]
         protected_images |= {c["image"] for c in definition["containerDefinitions"]}
+    # A consumer can use a mutable tag rather than an immutable digest. Resolve
+    # every tag in our repositories; an unresolvable dependency blocks cleanup.
+    for image in list(protected_images):
+        for uri in out["ecr_workers"].values():
+            if image.startswith(uri + ":"):
+                detail = ecr.describe_images(
+                    repositoryName=uri.split("/", 1)[1],
+                    imageIds=[{"imageTag": image[len(uri) + 1 :]}],
+                )["imageDetails"][0]
+                protected_images.add(uri + "@" + detail["imageDigest"])
     remove_tasks = []
     raw_definitions = []
     for role, service_name in out["ecs_services"].items():
@@ -170,6 +218,10 @@ def main():
         with os.fdopen(fd, "w") as stream:
             json.dump(raw_definitions, stream, default=str, indent=2)
         # Recheck running dependencies immediately before mutation.
+        if consumer_tasks(session) != consumers:
+            raise ValueError(
+                "Cross-cluster or scheduled consumers changed during review"
+            )
         latest = ecs.describe_services(
             cluster=out["ecs_cluster"], services=list(out["ecs_services"].values())
         )["services"]
