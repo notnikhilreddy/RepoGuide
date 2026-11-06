@@ -256,9 +256,13 @@ def main():
             ]
             if any(t["taskDefinitionArn"] in remove_tasks for t in active):
                 raise ValueError("A retirement target became active")
+        receipt = ROOT / ".artifacts/product-cloud-cleanup.json"
+        report.update(passed=False, retired_task_definitions=[], deleted_images=[])
+        receipt.write_text(json.dumps(report, indent=2, default=str))
         for arn in remove_tasks:
             ecs.deregister_task_definition(taskDefinition=arn)
-        report["deleted_images"] = []
+            report["retired_task_definitions"].append(arn)
+            receipt.write_text(json.dumps(report, indent=2, default=str))
         for image in remove_images:
             result = ecr.batch_delete_image(
                 repositoryName=image["repository"],
@@ -267,6 +271,7 @@ def main():
             if result.get("failures"):
                 raise RuntimeError("Image retirement failed; preserve partial evidence")
             report["deleted_images"].extend(result.get("imageIds", []))
+            receipt.write_text(json.dumps(report, indent=2, default=str))
         report["passed"] = True
     path = (
         ROOT

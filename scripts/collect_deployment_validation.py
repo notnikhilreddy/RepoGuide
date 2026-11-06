@@ -34,6 +34,8 @@ rollback = read("aws-component-rollback.json")
 cutover = read("vercel-cutover.json")
 cleanup = read("deployment-cleanup.json")
 drift = read("terraform-final-drift.json")
+product = read("product-live-api-smoke.json")
+metrics = read("native-2g-metrics.json") or {}
 
 
 def current_pass(name):
@@ -47,6 +49,11 @@ def current_pass(name):
 checks = {
     "measured_quality_gate": manifest["quality"]["status"] == "passed",
     "owner_scoped_s3_and_api": current_pass("product-live-api-smoke.json"),
+    "public_registration_enabled": bool(
+        product
+        and current_pass("product-live-api-smoke.json")
+        and product.get("public_registration_enabled") is True
+    ),
     "real_incremental_update_and_browser": current_pass(
         "product-incremental-live-smoke.json"
     ),
@@ -145,3 +152,65 @@ if args.require_complete:
     assert report["functional_acceptance_complete"], (
         "Required live acceptance evidence is incomplete"
     )
+    native_checks = native.get("checks", {})
+    browser_checks = production.get("checks", {})
+    expected_digests = {uri.split("@")[-1] for uri in manifest["images"].values()}
+    measured_digests = {
+        image["digest"]
+        for task in native.get("tasks", [])
+        for image in task.get("images", [])
+    }
+    smoke = {
+        "release_id": manifest["release_id"],
+        "live_aws": native.get("live_aws") is True and idle.get("live_aws") is True,
+        "live_cognito": native.get("live_cognito") is True
+        and production.get("live_cognito") is True,
+        "live_vercel": production.get("live_vercel") is True,
+        "browsing_workers_zero": native_checks.get("browsing_workers_zero") is True
+        and browser_checks.get("browsing_never_starts_compute") is True,
+        "independent_admin_controls": native_checks.get("independent_admin_controls")
+        is True,
+        "answer_fail_then_success": native_checks.get("answer_failed_job_isolated")
+        is True
+        and native_checks.get("live_answer_with_validated_citations") is True,
+        "index_fail_then_success": native_checks.get("index_failed_job_isolated")
+        is True
+        and native_checks.get("live_index_persisted") is True,
+        "models_reused": native_checks.get("same_process_after_jobs") is True
+        and metrics.get("release_id") == manifest["release_id"]
+        and all(
+            metrics.get("roles", {}).get(role, {}).get("embedding_model_loads") == 1
+            and metrics.get("roles", {}).get(role, {}).get("same_worker_as_native_test")
+            is True
+            for role in ["answer", "index"]
+        ),
+        "idle_sixty_real_minutes": idle.get("idle_sixty_real_minutes") is True
+        and idle.get("real_wall_clock") is True,
+        "minute_59_reset": idle.get("minute_59_reset") is True
+        and idle.get("minute_59_reset_prevented_old_deadline_stop") is True,
+        "native_fargate_sizing": measured_digests == expected_digests
+        and len(native.get("tasks", [])) == 2
+        and all(
+            task.get("cpu") == "1024" and task.get("memory") == "2048"
+            for task in native.get("tasks", [])
+        ),
+        "rollback_smoke": checks["component_rollback_restore"],
+        "no_surprise_compute": checks["cleanup_and_workers_zero"]
+        and native_checks.get("browsing_workers_zero") is True
+        and browser_checks.get("browsing_never_starts_compute") is True,
+        "rollback_scope": rollback.get("scope"),
+        "evidence": [
+            "aws-final-smoke.json",
+            "browser-production-smoke.json",
+            "aws-idle-verification.json",
+            "native-2g-metrics.json",
+            "aws-component-rollback.json",
+            "deployment-cleanup.json",
+        ],
+    }
+    assert all(
+        value is True
+        for key, value in smoke.items()
+        if key not in {"release_id", "rollback_scope", "evidence"}
+    ), "Derived release acceptance is incomplete; quality reference unchanged"
+    (art / "aws-release-smoke.json").write_text(json.dumps(smoke, indent=2))

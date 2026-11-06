@@ -31,7 +31,7 @@ try{
   const response=await accepted;if(response.status()!==202)throw new Error('Explicit update was not accepted');
   const job=await response.json();report.job_id=job.id;
   const old=await fetch(setup.api_url+'/api/ui/repositories/'+setup.old_repo_id+'/overview',{headers:{Authorization:'Bearer '+await token()}});
-  if(!old.ok()||(await old.json()).commit_sha!==setup.old_sha)throw new Error('Old index unavailable during update');
+  if(!old.ok||(await old.json()).commit_sha!==setup.old_sha)throw new Error('Old index unavailable during update');
   report.checks.old_index_usable_during_update=true;
   await expect(page.getByRole('button',{name:'Explore indexed repository',exact:true})).toBeVisible({timeout:900000});
   await page.getByRole('button',{name:'Explore indexed repository',exact:true}).click();

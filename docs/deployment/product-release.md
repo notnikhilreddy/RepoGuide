@@ -2,6 +2,33 @@
 
 This work implements `RepoGuide_Improvement_Plan.md` against the existing React/Vite application, small ZIP API Lambda, Neon/pgvector, S3, DynamoDB/SQS and separate CPU ECS workers. This is the current implementation record; the earlier initial-release documents describe historical deployment evidence.
 
+## Live deployment — November 6, 2026
+
+The published application is **https://repo-guide-five.vercel.app**. AWS release `release-8594722296f0308e` is deployed in Ohio (`us-east-2`), with Python source `e7871d59bfd4f0a9870bae1f9ba364d25d7b6e1d6a044859d625655ae1f77b5a`. The existing Vercel project serves the tested deployment `dpl_BzfeD8egzoxnjJX5LLxzAjUJMRNQ`. API URL: `https://701t28kwsb.execute-api.us-east-2.amazonaws.com`.
+
+| Artifact | Exact identity |
+| --- | --- |
+| Answer image | `sha256:f7d908c142f186130d18f116a81b02f2c0f5a32120d1cce335451ee71f0bae81` |
+| Index image | `sha256:f12c97b03af05dedd88d47d69780a3e85f1a995a67b494b0b69b26508b41250a` |
+| API ZIP, 5,529,909 bytes | `f4bb77200a026c37a1fde8b7f3c7aca39700730260bbd35616c39a438192d0e1` |
+| Controller ZIP, 15,477 bytes | `958a41e68a07c4a21fabe6b7a7be816beaecf3ad850d5d8ce8f42bda901ff039` |
+
+Local validation passed 188 backend tests, five frontend Node tests, 13 Playwright tests, TypeScript/build, Ruff and Terraform validation. Real production OAuth/browser checks passed saved S3 answers, refresh, follow-ups, feedback, exact-commit citations, source navigation, bounded architecture and browsing without starting compute. Native Fargate checked failed-then-healthy jobs, independent controls, model/process reuse, uncached generation, Context7, cache hits and a full index followed by a deduplicated repeat. Quota enforcement and two-user API/S3/index isolation passed. The original two indexes still match their pre-migration content hashes.
+
+The real ordinary-user incremental update detected an actual upstream MarkupSafe commit, displayed **Update available**, and reused 156 chunks while embedding one changed chunk. The prior revision stayed readable and duplicate submissions reused the existing job. A separate disposable PostgreSQL test covers added, modified and deleted files plus interrupted publication rollback; the live upstream commit changed one file and did not delete files.
+
+The real idle shutdown/reset observation is running with public registration temporarily closed. Final zero-compute, registration and drift readbacks follow that controlled observation; no accelerated clock is used.
+
+## Changed modules
+
+| Area | Main implementation |
+| --- | --- |
+| Hosted ownership, conversations, usage and durable result delivery | `src/repoguide/cloud_product.py`, `cloud_features.py`, `cloud_api.py`, `cloud_state.py`, `cloud_scaler.py` |
+| Schema and incremental revision publication | `migrations/versions/`, `src/repoguide/models.py`, `indexer.py`, `parser.py`, `intelligence.py` |
+| Retrieval, routing, citations and bounded context | `src/repoguide/retriever.py`, `retrieval_exact.py`, `retrieval_context.py`, `router.py`, `pipeline.py`, `answers.py`, `llm.py`, `telemetry.py` |
+| Landing/auth, history, architecture, source and command navigation | `frontend/src/` |
+| CPU packages, quotas, retention and release evidence | `deployment/`, `docker/`, `infra/terraform/`, `scripts/`, `evals/` |
+
 ## Scope and storage
 
 Public GitHub repositories are supported. The owner deferred private repository connections; no GitHub App registration or new credential is needed. Existing verified-public demo indexes are shared read-only. New indexes belong to the authenticated user, including when two users index the same public URL and commit. Older revisions remain usable. SQL migration `b42d92e7a610` adds ownership, parent revision and index diagnostics without replacing existing data. Legacy indexes must be assigned to the existing administrator and granted before public registration is enabled.
@@ -30,7 +57,7 @@ Hosted model/router configuration is OpenAI `gpt-6-luna`, default tier, bounded 
 
 Live before/after evaluation uses the exact starting deployed image/source and frozen candidate image, the same 13 pinned questions and routing probes, two repetitions and a shared fail-closed $2 reservation ledger. Failed attempts and unused reservations remain recorded. Scoring uses a strict typed judgment schema. A baseline measured from the previously owner-skipped release must be bound to its current ECS/Lambda identities and immutable S3 artifacts; it cannot replace a protected approved quality report.
 
-On November 6 the owner explicitly authorized publication with less rigid regression acceptance and preferred explanatory answers over shortening them for scores. The selected fully measured source is `6045f7cc62bd`: fact coverage increased from 78.8% to 98.1%, correctness from 91.3% to 99.0%, citation precision from 93.3% to 97.1%, and false-answer rate fell from 3.8% to zero. Two questions had minor slice regressions: provenance relevance and grounding citation/supported-claim precision averaged 87.5% versus 100%. Overlapping observed ranges are retained rather than treated as automatic rejection. `deployment/product-quality-acceptance.json` binds this explicit acceptance to the exact measured report/source; additional/global regressions, missing evidence and failed safety checks remain blocked. The original strict comparison is retained separately and is never described as passing. A shorter-answer experiment was stopped after it omitted relevant caller input transformations; its partial measurements are preserved, not used for publication. No additional quality-model run is needed to republish the identical measured image.
+On November 6 the owner explicitly authorized publication with less rigid regression acceptance and preferred explanatory answers over shortening them for scores. The selected fully measured source is `6045f7cc62bd`: fact coverage increased from 78.8% to 98.1%, correctness from 91.3% to 99.0%, citation precision from 93.3% to 97.1%, and false-answer rate fell from 3.8% to zero. Two questions had minor slice regressions: provenance relevance and grounding citation/supported-claim precision averaged 87.5% versus 100%. Overlapping observed ranges are retained rather than treated as automatic rejection. `deployment/product-quality-acceptance.json` binds this explicit acceptance to the exact measured report/source; additional/global regressions, missing evidence and failed safety checks remain blocked. The original strict comparison is retained separately and is never described as passing. A shorter-answer experiment was stopped after it omitted relevant caller input transformations; its partial measurements are preserved, not used for publication. No further prompt tuning or live quality-model run was performed for the serialization-only repair described below.
 
 The AWS rollout ceiling is below $10 and the existing $15/month alert is retained. The database backup has been restored locally and its original content hashes match. Production migration, deployment and live acceptance are recorded only after they actually succeed. Private backups, secrets and Terraform state are never committed.
 
@@ -43,3 +70,13 @@ After public accounts/private indexes exist, **do not restore the old shared-cat
 Production failure/recovery smoke must use `scripts/aws_runtime_smoke.py --phase final --temporary-admin` so its forced test index belongs to a new isolated identity. That helper removes only the test identity's MarkupSafe rows/grants; the original two indexes are fenced by the verified backup IDs. A final read-only content comparison uses the restored product backup proof and excludes only the new ownership/diagnostic columns.
 
 Cloud cleanup is a reviewed plan followed by `--apply` in `scripts/product_cloud_cleanup.py` and `scripts/product_vercel_cleanup.py`. The former checks cross-cluster ECS services/tasks, dormant EventBridge rules/schedules and image-based Lambdas, and resolves mutable image tags before retiring old worker images/task revisions; the latter preserves current/recovery and every active alias deployment in the existing project. Neither helper removes databases, conversations, queues, secrets, backups, state or release audit archives. Logical compressed image sizes do not establish actual billed storage savings because layers are shared. A regional inventory covers the deployed region and the prior target region; an access denial is recorded as unresolved, never as absence or permission to delete.
+
+Cleanup retired **14 unused task revisions, six old ECR image digests and three unused Vercel deployments**. Current images, the original recovery pair and the exact measured explanatory pair remain: three images per role. The retired image byte sum is 3,076,570,642 bytes before shared-layer deduplication; actual storage savings require billing data. This does not claim Vercel runtime savings. All currently referenced deployments/aliases, original indexes, conversations, secrets, backups and Terraform state were retained. The prior region `us-east-1` denied inventory access; its resources remain unresolved and untouched.
+
+## Practical limits
+
+Private GitHub connections are deferred by the owner. Public repositories added by a user remain private within RepoGuide. Administrator-started workers are required for indexing or answers; browsing and saved history work while workers are stopped. The per-user and global quotas intentionally bound a lightly used demo.
+
+Email verification/recovery forms and Cognito configuration are covered, but delivery to a real mailbox has not been exercised. Native memory figures are one-minute CloudWatch samples, not instantaneous RSS peaks. The paired evaluation latency was measured under Linux/amd64 emulation on Apple Silicon; its 9.8-to-42.4-second warm p95 change is not a native production benchmark. Native representative jobs took 15.77 seconds for an answer and 15.68 seconds for a full small-repository index, which are individual observations rather than p95 estimates.
+
+Both exact images passed zero-secret, zero-critical and zero-fixable-high scan gates. Vendor advisories without available fixes remain: 46 high findings in Answer and 54 in Index. Monaco is separately loaded and remains a large bundle; Terraform emits existing DynamoDB key deprecation warnings. These are retained findings, not claims of a warning-free build or unlimited repository capacity.

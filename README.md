@@ -62,7 +62,7 @@ Use `KEY=value` lines, optional matching quotes, and full-line comments. Values 
 
 Running API/worker processes hydrate SSM settings at startup. Restart workers and recycle existing Lambda execution environments through your deployment process to pick up updated settings; updating SSM alone does not refresh running processes.
 
-The current architecture, AWS rollout evidence and operating instructions are documented in [deployment handoff](docs/deployment/README.md). Answer generation uses OpenAI on the standard tier with bounded context. Paid comparative evaluation is explicitly skipped for the initial owner-authorized release. The older M8 guide describes the retired architecture and is historical.
+The live application is [repo-guide-five.vercel.app](https://repo-guide-five.vercel.app). Current architecture, measured quality results and AWS/Vercel verification are documented in the [product release record](docs/deployment/product-release.md). Answer generation uses OpenAI on the standard tier with bounded context. The older deployment handoff and M8 guide describe historical releases.
 
 ## Checks
 
@@ -85,6 +85,6 @@ Backend tests use mocks and temporary files; they do not require a live database
 - Local indexing and evaluation jobs run in process. Hosted Answer and Index jobs use independent SQS/Fargate workers with durable status; only an administrator explicitly enables either service.
 - Local API mutations require loopback requests. The cloud ZIP uses read-only Neon browsing, API Gateway JWT claims, administrator compute controls, bounded jobs and rolling 60-minute idle shutdown; hosted evaluations run through a protected release workflow.
 
-The hosted demo is not a multi-tenant production deployment. See the [UI guide](docs/M7_UI_GUIDE.md) and deployment guide for operational limitations. Historical [migration notes](docs/M6_MIGRATION.md) remain available; new installations should apply the complete Alembic migration chain.
+The hosted public demo isolates conversations, jobs and user-added indexes by authenticated owner; verified public demo indexes are shared read-only. Global worker controls require an administrator. See the [product release record](docs/deployment/product-release.md) for limits and recovery instructions. Historical [migration notes](docs/M6_MIGRATION.md) remain available; new installations should apply the complete Alembic migration chain.
 
 Product improvement implementation, migration, verification and rollout status: [product release record](docs/deployment/product-release.md) and [current progress](docs/IMPROVEMENT_STATUS.md). Public repository connections are in scope; private GitHub connections are deferred.

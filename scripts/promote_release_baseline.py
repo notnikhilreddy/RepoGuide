@@ -8,6 +8,7 @@ import argparse
 import json
 from pathlib import Path
 
+from baseline_reference import select_reference
 from release_cloud import ROOT, verify
 
 p = argparse.ArgumentParser(description=__doc__)
@@ -43,7 +44,27 @@ import boto3  # noqa: E402
 
 s3 = boto3.client("s3")
 report = (ROOT / ".artifacts/candidate-evaluation.json").read_bytes()
-key = "baselines/approved/" + manifest["release_id"] + "/evaluation.json"
+measured = None
+configuration = (ROOT / "deployment/release-config.json").read_bytes()
+if manifest["quality"].get("deployment_equivalence"):
+    policy = json.loads(
+        (ROOT / "deployment/product-quality-acceptance.json").read_text()
+    )
+    measured_id = policy["deployment_equivalence"]["measured_release_id"]
+    measured = json.loads(
+        s3.get_object(
+            Bucket=a.bucket, Key="releases/" + measured_id + "/release-manifest.json"
+        )["Body"].read()
+    )
+    if measured["release_id"] != measured_id:
+        raise SystemExit("Archived measured release identity differs")
+    configuration = s3.get_object(
+        Bucket=a.bucket,
+        Key="releases/" + measured_id + "/deployment/release-config.json",
+    )["Body"].read()
+production_id = manifest["release_id"]
+manifest = select_reference(manifest, json.loads(report), configuration, measured)
+key = "baselines/approved/" + production_id + "/evaluation.json"
 manifest["report_key"] = key
 s3.put_object(
     Bucket=a.bucket,
@@ -55,7 +76,7 @@ s3.put_object(
 )
 s3.put_object(
     Bucket=a.bucket,
-    Key="baselines/approved/" + manifest["release_id"] + "/manifest.json",
+    Key="baselines/approved/" + production_id + "/manifest.json",
     Body=json.dumps(manifest).encode(),
     ContentType="application/json",
     ServerSideEncryption="AES256",
@@ -76,4 +97,7 @@ s3.put_object(
     ServerSideEncryption="AES256",
     **condition,
 )
-print("Approved baseline promoted atomically after real smoke evidence")
+print(
+    "Approved measured quality reference promoted atomically after real smoke evidence; "
+    "measurement and production identities remain separate"
+)
