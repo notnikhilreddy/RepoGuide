@@ -45,7 +45,7 @@ def main():
                 path.with_name("retired-bypass-" + str(time.time_ns()) + ".json")
             )
         value = {
-            "secret": secrets.token_hex(32),
+            "secret": secrets.token_hex(16),
             "release_id": manifest["release_id"],
             "project_id": project["id"],
         }
