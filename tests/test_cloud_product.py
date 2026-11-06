@@ -239,11 +239,14 @@ def test_saved_answer_keeps_citations_and_reconciles_after_interrupted_delivery(
         "docs_sources": [],
         "trace_id": "trace-test",
     }
+    # Real progress goes through DynamoDB's number decoder before S3 delivery.
+    state.progress(raw["id"], lease, "generation", 0, "Writing answer")
     state.finish(state.get(raw["pk"]), lease, generation, "complete", result=answer)
     # No worker S3 callback happened. A new browser read must merge the durable job.
     restored = product.get_conversation("user", document["id"])
     assert "active_turn" not in restored
     assert restored["messages"][-1]["answer"] == answer
+    assert restored["messages"][-1]["events"][0]["stage"] == "generation"
     assert state.get("useractive#answer#user")["pending"] == 0
     assert len(product.get_conversation("user", document["id"])["messages"]) == 2
     with pytest.raises(LookupError):

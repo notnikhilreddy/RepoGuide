@@ -30,7 +30,7 @@ page.on('request',r=>{if(r.url().startsWith(api)&&r.method()==='POST')posts.push
 page.on('pageerror',e=>pageErrors.push(e.name));
 page.on('console',m=>{if(m.type()==='error'&&m.text().includes('Content Security Policy'))csp.push(m.text().slice(0,180))});
 async function token(){return page.evaluate(()=>{for(const k of Object.keys(sessionStorage)){if(k.startsWith('oidc.user:')){const x=JSON.parse(sessionStorage.getItem(k));if(x.access_token)return x.access_token}}return null})}
-async function palette(name){await page.keyboard.press('ControlOrMeta+k');await page.getByRole('combobox').fill(name);await page.getByRole('option').filter({hasText:name}).first().click()}
+async function palette(name){await page.keyboard.press('ControlOrMeta+k');await page.getByRole('dialog',{name:'Quick navigation'}).getByRole('combobox').fill(name);await page.getByRole('option').filter({hasText:name}).first().click()}
 try{
   const health=await fetch(api+'/health');if(!health.ok)throw new Error('API health failed');
   report.release_id=(await health.json()).release;
@@ -71,7 +71,9 @@ try{
     await expect(page.locator('.worker-pill').first()).toContainText('Running',{timeout:240000});
     report.checks.independent_explicit_ui_start=true;
     await page.getByRole('button',{name:'Conversations',exact:true}).click();
+    const creation=page.waitForResponse(r=>r.url().split('?')[0]===api+'/api/conversations'&&r.request().method()==='POST');
     await page.getByRole('button',{name:'New chat',exact:true}).click();
+    const created=await creation;if(created.status()!==201)throw new Error('Conversation was not created');createdConversation=(await created.json()).id;
     await page.getByRole('button',{name:'Options',exact:true}).click();
     await page.locator('.conversation-options select').first().selectOption('never');
     await page.getByLabel('Ask a question').fill('How does index_repository commit database changes and roll back failures?');

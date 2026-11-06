@@ -139,6 +139,16 @@ def main():
     protected_images = set(manifest["images"].values()) | {
         v["image"] for v in initial["workers"].values()
     }
+    if manifest["quality"].get("deployment_equivalence"):
+        measured = json.loads(
+            (ROOT / ".artifacts/measured-6045/release-manifest.json").read_text()
+        )
+        if measured["source_sha256"] != manifest["quality"]["candidate_source"]:
+            raise ValueError("Measured recovery release identity mismatch")
+        for kind, image in measured["images"].items():
+            if not image.startswith(out["ecr_workers"][kind] + "@sha256:"):
+                raise ValueError("Measured recovery image is outside this stack")
+            protected_images.add(image)
     lamb = session.client("lambda")
     for page in lamb.get_paginator("list_functions").paginate():
         for function in page["Functions"]:
@@ -212,7 +222,7 @@ def main():
             x["compressed_bytes"] for x in remove_images
         ),
         "storage_savings_note": "Logical image sizes share layers; actual billed ECR storage savings cannot be inferred by summing these sizes.",
-        "retained": "All SQL/S3 conversations and indexes, secrets, state, database backups, release audit archives, current and starting-release recovery images.",
+        "retained": "All SQL/S3 conversations and indexes, secrets, state, database backups, release audit archives, current, measured and starting-release recovery images.",
     }
     if args.apply:
         from release_cloud import verify

@@ -21,7 +21,7 @@
     "RERANK_MODEL": "/opt/models/reranker",
     "EMBEDDING_DIM": "384"
   },
-  "source_sha256": "6045f7cc62bdb4721195b6bafb8273100df36fd5d641cb2fc184c02ccd0447a1",
+  "source_sha256": "e7871d59bfd4f0a9870bae1f9ba364d25d7b6e1d6a044859d625655ae1f77b5a",
   "models": {
     "embedding": {
       "id": "sentence-transformers/all-MiniLM-L6-v2",

@@ -66,7 +66,7 @@ checks = {
             for v in security.get("task_hardening", {}).values()
         )
     ),
-    "live_rate_limit": bool((read("aws-rate-verification.json") or {}).get("passed")),
+    "live_rate_limit": current_pass("aws-rate-verification.json"),
     "original_neon_data_preserved": bool(preservation and preservation.get("passed")),
     "idle_verification_resolved": bool(
         idle

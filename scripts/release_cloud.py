@@ -143,8 +143,29 @@ def verify_evaluation():
     (artifacts / "quality-comparison.json").write_text(json.dumps(result, indent=2))
     if not result["passed"]:
         raise ValueError("Non-regression gate rejected the candidate")
+    equivalence = None
     if candidate["source_sha256"] != source_hash():
-        raise ValueError("Source changed after evaluation")
+        from scripts.operational_equivalence import verify as verify_equivalence
+
+        images = {
+            kind: subprocess.check_output(
+                [
+                    "docker",
+                    "image",
+                    "inspect",
+                    "repoguide-" + kind + ":candidate",
+                    "--format",
+                    "{{.Id}}",
+                ],
+                text=True,
+            ).strip()
+            for kind in ["answer", "index"]
+        }
+        equivalence = verify_equivalence(ROOT, candidate, policy or {}, images)
+        result["deployment_equivalence"] = equivalence
+        (artifacts / "evaluation-equivalence.json").write_text(
+            json.dumps(equivalence, indent=2)
+        )
     approved = artifacts / "approved-evaluation.json"
     if approved.exists():
         historical = compare(json.loads(approved.read_text()), candidate)
@@ -162,7 +183,8 @@ def verify_evaluation():
     model = json.loads((ROOT / "deployment/release-config.json").read_text())
     if (
         model["source_sha256"] != source_hash()
-        or candidate["release_config_sha256"]
+        or not equivalence
+        and candidate["release_config_sha256"]
         != hashlib.sha256(
             (ROOT / "deployment/release-config.json").read_bytes()
         ).hexdigest()
@@ -192,8 +214,9 @@ def verify_evaluation():
         ],
         text=True,
     ).strip()
-    if candidate["image_id"] != image:
+    if candidate["image_id"] != image and not equivalence:
         raise ValueError("Candidate image differs from evaluated image")
+    (artifacts / "quality-comparison.json").write_text(json.dumps(result, indent=2))
     return {**result, "status": "passed"}
 
 

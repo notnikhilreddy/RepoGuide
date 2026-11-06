@@ -14,6 +14,7 @@ import os
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 
 from repoguide import cloud_state as state
 
@@ -133,12 +134,22 @@ def _read(subject, conversation_id):
     return json.loads(raw), result["ETag"]
 
 
+def _json_number(value):
+    # DynamoDB deserializes even integer event timestamps as Decimal. Keep the
+    # durable S3 document ordinary JSON without stringifying numeric fields.
+    if isinstance(value, Decimal) and value.is_finite():
+        return int(value) if value == value.to_integral_value() else float(value)
+    raise TypeError("Unsupported conversation value")
+
+
 def _write(subject, document, etag=None, *, create=False):
     if not create:
         _metadata(subject, document["id"])
     document["version"] = int(document.get("version", 0)) + 1
     document["updated_at"] = int(time.time() * 1000)
-    raw = json.dumps(document, separators=(",", ":"), ensure_ascii=False).encode()
+    raw = json.dumps(
+        document, separators=(",", ":"), ensure_ascii=False, default=_json_number
+    ).encode()
     if len(raw) > 600000:
         # Large answers remain durable in separate private S3 objects. Keep the
         # conversation manifest bounded rather than losing a completed answer.
@@ -146,7 +157,10 @@ def _write(subject, document, etag=None, *, create=False):
             if not message.get("answer"):
                 continue
             content = json.dumps(
-                message["answer"], separators=(",", ":"), ensure_ascii=False
+                message["answer"],
+                separators=(",", ":"),
+                ensure_ascii=False,
+                default=_json_number,
             ).encode()
             key = f"conversations/{namespace(subject)}/{document['id']}/{message['id']}-{hashlib.sha256(content).hexdigest()[:16]}.json"
             s3().put_object(
@@ -159,7 +173,10 @@ def _write(subject, document, etag=None, *, create=False):
             message["answer_ref"] = key
             message.pop("answer", None)
             raw = json.dumps(
-                document, separators=(",", ":"), ensure_ascii=False
+                document,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                default=_json_number,
             ).encode()
             if len(raw) <= 600000:
                 break

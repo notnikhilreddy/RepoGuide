@@ -28,5 +28,20 @@
       "candidate": 0.875
     }
   ],
-  "scope": "This fully measured explanatory candidate only. All aggregate means, other slice means, retrieval metrics, safety, provenance, performance, isolation and functional gates remain required."
+  "scope": "This fully measured explanatory candidate only. All aggregate means, other slice means, retrieval metrics, safety, provenance, performance, isolation and functional gates remain required.",
+  "deployment_equivalence": {
+    "version": "serialization-recovery-v1",
+    "deployment_source_sha256": "e7871d59bfd4f0a9870bae1f9ba364d25d7b6e1d6a044859d625655ae1f77b5a",
+    "deployment_image_ids": {
+      "answer": "sha256:f7d908c142f186130d18f116a81b02f2c0f5a32120d1cce335451ee71f0bae81",
+      "index": "sha256:f12c97b03af05dedd88d47d69780a3e85f1a995a67b494b0b69b26508b41250a"
+    },
+    "changed_module": {
+      "path": "cloud_product.py",
+      "before_sha256": "ec191174fcc0bbf5e654eadd40b97597ef1a2542f2ae72cc145df1bbdcc15c4c",
+      "after_sha256": "828f2c979ba7759b9113fed5204c0ac95279d9673c5606e40ffc99c9031010f2"
+    },
+    "reason": "Normalize DynamoDB Decimal event timestamps when persisting completed chat answers to S3. All measured answer/retrieval modules, prompts, model configuration, model weights and dependencies remain byte-identical. No new model scores are claimed.",
+    "measured_release_id": "release-52858556d6b4d33d"
+  }
 }
