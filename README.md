@@ -45,6 +45,8 @@ For a containerized local API, run `docker compose -f compose.yaml -f compose.m8
 
 ## Deployment settings and SSM
 
+The hosted release uses separate `/repoguide/demo/api`, `/repoguide/demo/answer` and `/repoguide/demo/index` runtime parameters. The release operator prepares those scoped payloads with `scripts/configure_cloud_secrets.py`. The utility below replaces one specified parameter; it does not automatically redistribute settings across the deployed roles.
+
 Use **one** private `.env.deploy` for AWS application settings. `.env` remains the separate local development configuration. If creating deployment settings from scratch:
 
 ```bash

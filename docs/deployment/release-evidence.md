@@ -8,7 +8,9 @@ The explanatory candidate's paired live evaluation improved fact coverage **78.8
 
 Dependency-aware cleanup removed **14 unused task revisions, six old ECR digests and three unused Vercel deployments**. Current, original recovery and measured explanatory images remain; databases, conversations, secrets, backups, state and audit evidence were retained. Regional access denial is explicitly unresolved, not absence of resources.
 
-The real idle-window/reset check is still running. Final public-registration, zero-worker and Terraform drift readbacks are pending that observation. The model reservation is currently about $1.50, with one planned bounded idle-reset answer bringing it to about $1.59; AWS rollout is conservatively estimated below $6 and the $15/month alert remains configured. Billing is delayed; no settled actual AWS total is claimed.
+**Final acceptance is complete and public registration is enabled.** Both workers shut down after approximately 60 minutes 7 seconds of real idle time, and the minute-59 request prevented the old shutdown deadline. The first local observer was interrupted by laptop sleep and its failed result is retained; a separate Answer-hour observation completed the proof. The release does not claim a continuously observed two-hour worker lifetime. Final readbacks confirm zero workers/tasks/ENIs, empty queues/DLQs, removed temporary access/accounts, all four alarms OK and no Terraform drift (exit 0). The SNS email subscription is confirmed.
+
+The final conservative model reservation is **$1.592115 of $2**; AWS rollout is estimated below $6 and the $15/month alert remains configured. Billing is delayed; no settled actual AWS total is claimed. The protected approved quality reference retains its actually measured source/image and separately identifies production acceptance and the serialization repair. Full evidence is retained in private versioned S3.
 
 ## Historical initial release
 
