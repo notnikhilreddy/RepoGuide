@@ -85,6 +85,8 @@ if args.final:
         ".artifacts/product-local-validation.json",
         ".artifacts/product-eval/spend.json",
         ".artifacts/product-budget-observation.json",
+        ".artifacts/product-registration-plan-review.json",
+        ".artifacts/product-registration.json",
         ".artifacts/product-quality-reference.json",
         ".artifacts/ecr-sizes.json",
         ".artifacts/native-2g-metrics.json",
