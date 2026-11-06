@@ -58,7 +58,9 @@ for user in users:
     email = next((a["Value"] for a in user["Attributes"] if a["Name"] == "email"), "")
     assert not (
         email.endswith("@example.invalid")
-        and email.startswith(("smoke-", "rate-smoke-"))
+        and email.startswith(
+            ("smoke-", "rate-smoke-", "product-smoke-", "product-update-")
+        )
     )
 queues = {}
 for kind in ["queues", "deadletter_queues"]:
