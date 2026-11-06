@@ -63,6 +63,11 @@ if manifest["quality"]["status"] == "passed":
         "evals/release_cases.json",
         "evals/release_routes.json",
     ]
+    if manifest["quality"].get("acceptance") == "owner_accepted_measured_tradeoffs":
+        paths += [
+            ".artifacts/strict-quality-comparison.json",
+            "deployment/product-quality-acceptance.json",
+        ]
 if args.final:
     paths += [
         ".artifacts/product-database-rollout.json",
@@ -74,6 +79,8 @@ if args.final:
         ".artifacts/product-vercel-cleanup.json",
         ".artifacts/product-resource-inventory.json",
         ".artifacts/product-source-secret-scan.json",
+        ".artifacts/product-local-validation.json",
+        ".artifacts/product-eval/spend.json",
         ".artifacts/playwright-results.json",
         "docs/deployment/product-release.md",
     ]

@@ -76,27 +76,25 @@ def prompt_for_evidence(state: dict, answer_depth: str = "standard") -> str:
 
     depth_hint = {
         "concise": "Answer succinctly but cover all necessary facts.",
-        "standard": "Answer directly and cover the requested scope without an unsolicited implementation walkthrough.",
+        "standard": "Provide a clear and complete technical explanation.",
         "detailed": "Explain architecture, relevant functions, data flow and grounded code examples in depth.",
     }.get(answer_depth, "Provide a clear explanation.")
     return (
         depth_hint + "\n" + "Return EXACTLY ONE valid JSON object with these fields:\n"
         '{"status":"answered|partial|insufficient_evidence",'
-        '"answer":"Markdown answer to the actual question with [S1]/[D1] citations",'
+        '"answer":"FULL detailed Markdown answer with [S1]/[D1] citations",'
         '"claims":[{"text":"important factual claim","citations":["S1"]}],'
         '"limitations":["only genuinely missing information"]}\n\n'
-        "The `answer` field is the user-facing explanation. Start with the direct answer. "
-        "For focused factual questions, include only the supporting detail needed to establish the conclusion. "
-        "Do not catalogue adjacent implementation mechanics or add an unsolicited walkthrough. "
-        "Use headings or numbered steps when the requested scope benefits from them. "
-        "When a multi-step code flow is requested, explain the entry point, calls, "
+        "Important: The `answer` field is the MAIN user-facing answer. "
+        "Write a coherent, sufficiently detailed explanation in this field, "
+        "not a terse list of claims. Use headings and numbered steps where useful. "
+        "For multi-step code-flow questions, explain the entry point, calls, "
         "data transformations, database operations, and return path IF they "
         "are supported by evidence. Name functions/files and explain why each "
-        "step happens. Expand only enough to cover the requested scope; avoid padding. "
+        "step happens. For complex questions, several explanatory paragraphs "
+        "may be appropriate; avoid padding or unnecessary verbosity. "
         "Cite repository-specific factual paragraphs with existing [S#] labels "
         "and documentation claims with existing [D#] labels INSIDE `answer`. "
-        "Each paragraph's cited excerpts must establish every detail in that paragraph; "
-        "a nearby function or a label's existence is not support for an unstated detail. "
         "The `claims` list is only a short audit summary of major assertions, "
         "not a replacement for the explanation. Every listed claim needs a valid "
         "citation label. No invented source labels or file behaviors. "

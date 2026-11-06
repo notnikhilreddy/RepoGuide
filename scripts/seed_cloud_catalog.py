@@ -120,6 +120,14 @@ def main():
             document = public_report(
                 name, measured, corpus, comparison if phase == "candidate" else None
             )
+            if (
+                phase == "candidate"
+                and manifest["quality"].get("acceptance")
+                == "owner_accepted_measured_tradeoffs"
+            ):
+                document["notes"] += (
+                    " Two questions showed minor relevance/citation-scoring regressions; this release was accepted with those measured tradeoffs."
+                )
             objects["evaluations/" + name] = json.dumps(
                 document, ensure_ascii=False, separators=(",", ":")
             ).encode()

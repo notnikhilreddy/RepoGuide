@@ -1,0 +1,32 @@
+{
+  "version": "product-owner-tradeoffs-v1",
+  "authorization": {
+    "date": "2026-11-06",
+    "instruction": "it's fine, let it publish. the regression tests need not be so strict. I don't want my answer to be too short just for them to pass. let it be a bit verbose while still addressing the users question."
+  },
+  "source_sha256": "6045f7cc62bdb4721195b6bafb8273100df36fd5d641cb2fc184c02ccd0447a1",
+  "baseline_source_sha256": "21d534cbf513d1fb893393ee7d131dbc1a25b1be220caef5e9ed539b28661c6f",
+  "candidate_report_sha256": "c4770e844973c8058871951c5449fcb2ff2a62f7cfe2d6f9a89fe05b8a06c237",
+  "accept_overlapping_observed_ranges": true,
+  "accepted_slice_regressions": [
+    {
+      "group": "slices/provenance",
+      "metric": "relevance",
+      "baseline": 1.0,
+      "candidate": 0.875
+    },
+    {
+      "group": "slices/grounding",
+      "metric": "citation_precision",
+      "baseline": 1.0,
+      "candidate": 0.875
+    },
+    {
+      "group": "slices/grounding",
+      "metric": "supported_claim_precision",
+      "baseline": 1.0,
+      "candidate": 0.875
+    }
+  ],
+  "scope": "This fully measured explanatory candidate only. All aggregate means, other slice means, retrieval metrics, safety, provenance, performance, isolation and functional gates remain required."
+}
