@@ -107,7 +107,7 @@ def retrieve_node(state: EvidenceState) -> dict:
                         25,
                         "Reranking candidates and checking related files",
                     )
-                hits = rerank_hits(state["question"], hits)
+                hits = rerank_hits(question, hits)
             support = (
                 supporting_source(
                     session,
@@ -118,7 +118,8 @@ def retrieve_node(state: EvidenceState) -> dict:
                 if state["top_k"] > 1
                 else []
             )
-            candidates = hits + support
+            candidate_ids = {h.chunk.id for h in hits}
+            candidates = hits + [h for h in support if h.chunk.id not in candidate_ids]
             hits = diverse(hits, state["top_k"])
             if support:
                 supporting_ids = {h.chunk.id for h in support}

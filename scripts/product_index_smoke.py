@@ -190,6 +190,21 @@ def main():
                     and "384" in h.chunk.content
                     for h in definitions
                 ), "Referenced settings need their repository definition"
+                low_rank_definition = next(
+                    h
+                    for h in definitions
+                    if h.chunk.file_path == "src/repoguide/config.py"
+                )
+                linked_again = supporting_source(
+                    db,
+                    fixture_id,
+                    [SearchHit(embedding, "fixture"), *tail, low_rank_definition],
+                )
+                assert any(
+                    h.chunk.id == low_rank_definition.chunk.id for h in linked_again
+                ), (
+                    "A low-ranked existing candidate must still get its reserved reference slot"
+                )
                 assert exact_symbols(
                     db, fixture_id, "Explain EmbeddingService and index_repository"
                 ), "Unquoted code identifiers need exact symbol recall"
