@@ -42,6 +42,10 @@ private.mkdir(exist_ok=True, mode=0o700)
 credentials_file = private / (
     "cognito-smoke-admin.json" if args.temporary_admin else "cognito-admin.json"
 )
+if args.temporary_admin and credentials_file.exists():
+    raise ValueError(
+        "Preserve the existing temporary identity credentials for recovery before another run"
+    )
 email = (
     "smoke-admin-" + uuid.uuid4().hex[:8] + "@example.invalid"
     if args.temporary_admin
@@ -53,6 +57,10 @@ if not args.temporary_admin and (
 ):
     password = json.loads(credentials_file.read_text())["password"]
 else:
+    if credentials_file.exists():
+        raise ValueError(
+            "Existing credentials belong to another pool; never overwrite them"
+        )
     password = secrets.token_urlsafe(28) + "Aa9!"
     cognito.admin_create_user(
         UserPoolId=pool,
@@ -66,12 +74,13 @@ else:
     cognito.admin_set_user_password(
         UserPoolId=pool, Username=email, Password=password, Permanent=True
     )
-    credentials_file.write_text(
-        json.dumps(
-            {"username": email, "password": password, "user_pool_id": pool}, indent=2
+    fd = os.open(credentials_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        json.dump(
+            {"username": email, "password": password, "user_pool_id": pool},
+            indent=2,
+            fp=stream,
         )
-    )
-    credentials_file.chmod(0o600)
 cognito.admin_add_user_to_group(
     UserPoolId=pool, Username=email, GroupName="repoguide-admins"
 )
