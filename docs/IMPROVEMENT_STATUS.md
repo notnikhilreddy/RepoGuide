@@ -18,16 +18,16 @@ The starting working tree passed 135 backend tests, four frontend Node tests, Ru
 
 | Area | Status |
 | --- | --- |
-| Ownership and access isolation | Implemented; migration/production validation pending |
+| Ownership and access isolation | Migration applied; both original indexes preserved and shared read-only; live API isolation pending backend rollout |
 | S3 conversations and bounded context | Implemented; durability, CAS, isolation and recovery tests passing |
 | Public GitHub freshness and incremental indexing | Implemented; isolated PostgreSQL incremental/rollback smoke passed |
 | Retrieval, citations and semantic routing | Implemented; completed explanatory candidate accepted with recorded measured tradeoffs |
 | Landing/auth, architecture, overview, navigation and worker header | Implemented; 13 local browser checks passed; live browser acceptance pending rollout |
 | Diagnostics, timeline, feedback and usage | Implemented; backend and local browser verification passed |
-| Deployment and production verification | Exact-image checks finishing before authorized rollout |
+| Deployment and production verification | Exact-image checks passed; authorized AWS/Vercel rollout in progress |
 | Code/cloud cleanup | Code/reference audit completed; read-only cloud inventory and dependency-aware cleanup plan saved |
 
-Verified locally: 175 backend tests, five frontend Node tests, 13 browser checks, TypeScript/build, extracted ZIP read-only browsing with owner grants, and Terraform validation. The database backup restored successfully and matches the original two indexes. Both optimized CPU images passed dependency/secret/critical/fixable-high security gates; vendor high-severity findings without fixes remain recorded in the scan reports. No production mutation or application cutover has occurred during this improvement release yet.
+Verified locally: 175 backend tests, five frontend Node tests, 13 browser checks, TypeScript/build, extracted ZIP read-only browsing with owner grants, and Terraform validation. The database backup restored successfully and matches the original two indexes. Both optimized CPU images passed dependency/secret/critical/fixable-high security gates; vendor high-severity findings without fixes remain recorded in the scan reports. The production ownership migration is applied and original content hashes remain unchanged. Application cutover and live acceptance are in progress; registration remains closed.
 
 See [the product release record](deployment/product-release.md) for scope, storage, safeguards and rollout sequence. This file records verified progress; a listed requirement is not evidence of live acceptance.
 
