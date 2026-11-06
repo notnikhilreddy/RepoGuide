@@ -28,7 +28,9 @@ def _allowed_dependencies(deps: list[str]) -> list[str]:
         {
             str(x).strip()
             for x in deps
-            if re.fullmatch(r"[A-Za-z0-9_.-]{2,80}", str(x).strip())
+            if re.fullmatch(
+                r"(?:@[A-Za-z0-9_.-]+/)?[A-Za-z0-9_.-]{2,80}", str(x).strip()
+            )
         }
     )[:60]
 
@@ -122,6 +124,7 @@ def _llm_route(state: dict, allowed: list[str], policy: str) -> RouteDecision:
                 "question": state["question"],
                 "repository_evidence": state.get("summary", "")[:5000],
                 "allowed_deps": allowed[:40],
+                "dependency_versions": state.get("dependency_versions", {}),
                 "policy": policy,
             }
         )
@@ -131,13 +134,18 @@ def _llm_route(state: dict, allowed: list[str], policy: str) -> RouteDecision:
 
 
 def decide(
-    question: str, sources: list[dict], declared_deps: list[str], policy: str = "auto"
+    question: str,
+    sources: list[dict],
+    declared_deps: list[str],
+    policy: str = "auto",
+    *,
+    dependency_specs: dict | None = None,
 ) -> RouteDecision:
     if policy not in {"auto", "always", "never"}:
         raise ValueError("Invalid docs policy")
     allowed = _allowed_dependencies(declared_deps)
     summary = "\n".join(
-        f"{s.get('file_path')}::{s.get('symbol_name')} lines {s.get('start_line')}-{s.get('end_line')}"
+        f"{s.get('file_path')}::{s.get('symbol_name')} lines {s.get('start_line')}-{s.get('end_line')}\n{s.get('excerpt', '')[:450]}"
         for s in sources[:10]
     )
     state = {
@@ -145,6 +153,7 @@ def decide(
         "summary": summary,
         "available_files": len(sources),
         "declared_dependencies": allowed[:40],
+        "dependency_versions": dependency_specs or {},
     }
     with span(
         "route.model",
@@ -169,8 +178,15 @@ def decide(
                 )
             except Exception as exc:
                 if settings.router_provider == "jev":
-                    result = _llm_route(state, allowed, policy)
-                    result.reason += f"; Jev fallback: {type(exc).__name__}"
+                    try:
+                        result = _llm_route(state, allowed, policy)
+                        result.reason += f"; Jev fallback: {type(exc).__name__}"
+                    except Exception as fallback_exc:
+                        result = RouteDecision(
+                            sufficient=False,
+                            reason=f"Router unavailable: {type(exc).__name__}; fallback: {type(fallback_exc).__name__}",
+                            router="fallback",
+                        )
                 else:
                     # Safe fail closed: no unvalidated external tool arguments.
                     result = RouteDecision(
@@ -179,8 +195,18 @@ def decide(
                         router="fallback",
                     )
             if policy == "always" and allowed and "context7" not in result.tools:
-                result.tools.append("context7")
-                result.dependencies = result.dependencies or allowed[:1]
+                mentioned = [
+                    d
+                    for d in allowed
+                    if re.search(rf"(?<!\w){re.escape(d)}(?!\w)", question, re.I)
+                ]
+                result.dependencies = result.dependencies or mentioned[:2]
+                if result.dependencies:
+                    result.tools.append("context7")
+                else:
+                    result.reason += (
+                        "; no dependency could be selected from the evidence"
+                    )
         record(
             active,
             result.model_dump(),

@@ -26,3 +26,13 @@ uv run python evals/benchmark_router_m6.py --providers llm
 The datasets are historical starter cases. Some expected paths reference files from older RepoGuide commits. Check expected paths against the indexed repository commit before using scores as a quality gate; do not silently replace historical expected paths with guesses.
 
 Live answer/router runners can call LLMs and external tools. Judge scoring is opt-in through `--judge-model` and may incur additional charges. Existing MLflow experiment history is preserved independently of disposable local JSON reports.
+
+## Production release gate
+
+`release_cases.json` pins the public RepoGuide fixture to commit `4aa70f5` and contains current expected paths, reviewed reference facts, abstention and injection cases. `release_routes.json` adds explicit routing-intent labels without altering the historical starter dataset. `deployment/evaluator-config.json` pins the judge, repeat count, request/token limits and fixture embedding revision.
+
+`release_eval.py` runs every retrieval mode, real generation/judging and enabled Context7 probing inside the exact candidate image. It uses two uncached passes and records per-case outputs, per-slice results, dependency/source/image identities and observed measurement ranges. GitHub MCP is intentionally disabled for this release. Reports are private local artifacts until sanitized.
+
+`release_gate.py` rejects missing, partial, stale, cached, non-finite, unsafe or non-comparable evidence. Every required metric/slice must be non-worse; overlapping stochastic ranges that cannot establish that property block promotion. No rounding tolerance or lower-baseline reset is provided. Historical `ci_gate.py` thresholds are **not** a production deployment gate.
+
+Live requests are currently paused after Google AI Studio returned 503. No approved live baseline or candidate comparison exists. The corpus and evaluator are prepared for a later explicitly resumed run. Offline retrieval and fixture-driven worker tests do not replace live quality evaluation.

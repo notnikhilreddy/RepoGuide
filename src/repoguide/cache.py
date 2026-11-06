@@ -8,13 +8,27 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from functools import lru_cache
+from pathlib import Path
+from typing import Protocol
 
 from repoguide.config import settings
 
 
+class CacheBackend(Protocol):
+    def get(self, key: str) -> str | None: ...
+    def setex(self, key: str, ttl: int, value: str) -> None: ...
+
+
 @lru_cache(maxsize=1)
 def cache_client():
+    from repoguide.cloud_cache import rest_cache
+
+    if client := rest_cache():
+        return client
+    if os.getenv("REPOGUIDE_CLOUD_MODE") == "true":
+        return None
     import redis
 
     url = getattr(settings, "redis_url", "")
@@ -25,9 +39,27 @@ def cache_client():
     )
 
 
+@lru_cache(maxsize=1)
+def quality_fingerprint():
+    digest = hashlib.sha256()
+    for name in (
+        "llm.py",
+        "answers.py",
+        "workflow.py",
+        "router.py",
+        "pipeline.py",
+        "hybrid.py",
+        "context.py",
+    ):
+        digest.update(Path(__file__).with_name(name).read_bytes())
+    return digest.hexdigest()
+
+
 def result_key(state: dict, provider: str, model: str) -> str:
     material = {
-        "schema": "m5-v1",
+        "schema": "cloud-v2",
+        "release": os.getenv("REPOGUIDE_RELEASE", "local"),
+        "prompt_retrieval": quality_fingerprint(),
         "question": state["question"],
         "repo_id": state["repo_id"],
         "commit": state.get("commit_sha"),
@@ -36,14 +68,28 @@ def result_key(state: dict, provider: str, model: str) -> str:
         "docs": state.get("external_evidence", []),
         "provider": provider,
         "model": model,
+        "generation_config": {
+            "context_chars": settings.context_char_budget,
+            "openai_reasoning": settings.openai_reasoning_effort,
+            "openai_max_output": settings.openai_max_output_tokens,
+        },
+        "history": state.get("history", []),
+        "focus": state.get("focus", {}),
     }
     fingerprint = hashlib.sha256(
         json.dumps(material, sort_keys=True, default=str).encode()
     ).hexdigest()
-    return "repoguide:local:m5:" + fingerprint
+    return (
+        "repoguide:"
+        + os.getenv("REPOGUIDE_CACHE_NAMESPACE", "local")
+        + ":answer:"
+        + fingerprint
+    )
 
 
 def load_result(key: str) -> dict | None:
+    if os.getenv("REPOGUIDE_EVALUATION") == "true":
+        return None
     try:
         c = cache_client()
         return json.loads(value) if c and (value := c.get(key)) else None
@@ -52,6 +98,8 @@ def load_result(key: str) -> dict | None:
 
 
 def save_result(key: str, result: dict, ttl: int = 300) -> None:
+    if os.getenv("REPOGUIDE_EVALUATION") == "true":
+        return
     try:
         c = cache_client()
         if c:
@@ -62,11 +110,16 @@ def save_result(key: str, result: dict, ttl: int = 300) -> None:
 
 def tool_cache_key(provider: str, query: dict) -> str:
     material = json.dumps(
-        {"provider": provider, "query": query, "version": 1},
+        {"provider": provider, "query": query, "version": quality_fingerprint()},
         sort_keys=True,
         default=str,
     )
-    return "repoguide:local:tool:" + hashlib.sha256(material.encode()).hexdigest()
+    return (
+        "repoguide:"
+        + os.getenv("REPOGUIDE_CACHE_NAMESPACE", "local")
+        + ":tool:"
+        + hashlib.sha256(material.encode()).hexdigest()
+    )
 
 
 def load_tool(key: str) -> dict | None:

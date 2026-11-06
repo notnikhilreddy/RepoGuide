@@ -10,12 +10,46 @@ import asyncio
 import json
 import os
 import re
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from mcp import Client, StdioServerParameters
 from pydantic import BaseModel, Field
 
 from repoguide.config import settings
+
+
+@asynccontextmanager
+async def bounded_client(params, provider):
+    if os.getenv("REPOGUIDE_CLOUD_MODE") != "true":
+        async with Client(params, cache=None) as client:
+            yield client
+        return
+    import httpx2
+    from mcp.client.streamable_http import streamable_http_client
+
+    if provider == "context7":
+        url = "https://mcp.context7.com/mcp"
+        headers = (
+            {"Authorization": "Bearer " + settings.context7_api_key}
+            if settings.context7_api_key
+            else {}
+        )
+    else:
+        url = "https://api.githubcopilot.com/mcp/"
+        headers = {
+            "Authorization": "Bearer " + settings.github_personal_access_token,
+            "X-MCP-Readonly": "true",
+            "X-MCP-Tools": "get_file_contents,issue_read",
+        }
+    async with httpx2.AsyncClient(headers=headers, timeout=12) as http:
+        async with Client(
+            streamable_http_client(url, http_client=http),
+            cache=None,
+            read_timeout_seconds=12,
+        ) as client:
+            yield client
 
 
 @dataclass(frozen=True)
@@ -26,10 +60,13 @@ class ExternalEvidence:
     excerpt: str
     library: str
     topic: str
+    source_urls: tuple[str, ...] = ()
 
 
 class Context7Lookup(BaseModel):
-    library_name: str = Field(min_length=2, max_length=80, pattern=r"^[\w.-]+$")
+    library_name: str = Field(
+        min_length=2, max_length=100, pattern=r"^(?:@[\w.-]+/)?[\w.-]+$"
+    )
     question: str = Field(min_length=5, max_length=400)
 
 
@@ -77,7 +114,7 @@ async def context7_docs(query: Context7Lookup) -> ExternalEvidence:
         env=env,
     )
     async with asyncio.timeout(35):
-        async with Client(params) as client:
+        async with bounded_client(params, "context7") as client:
             listing = await client.list_tools()
             allowed = {t.name for t in listing.tools}
             if not {"resolve-library-id", "query-docs"}.issubset(allowed):
@@ -104,14 +141,30 @@ async def context7_docs(query: Context7Lookup) -> ExternalEvidence:
             def normalize(value: str) -> str:
                 return value.lower().replace("_", "-")
 
-            wanted = normalize(query.library_name)
+            wanted = normalize(query.library_name.lstrip("@").split("/")[-1])
+            namespace = (
+                query.library_name.lstrip("@").split("/")[0]
+                if query.library_name.startswith("@")
+                else None
+            )
 
             matches = [
                 library_id
                 for library_id in ids
                 if any(
-                    wanted in normalize(part)
+                    (
+                        normalize(part) == wanted
+                        or normalize(part).startswith(wanted + "-")
+                        or normalize(part).startswith(wanted + "_")
+                    )
                     for part in library_id.strip("/").split("/")
+                )
+                and (
+                    not namespace
+                    or any(
+                        normalize(part) == normalize(namespace)
+                        for part in library_id.strip("/").split("/")
+                    )
                 )
             ]
 
@@ -131,13 +184,21 @@ async def context7_docs(query: Context7Lookup) -> ExternalEvidence:
             excerpt = extract_tool_text(result)
             if not excerpt.strip():
                 raise RuntimeError("Context7 returned empty documentation")
+            urls = []
+            for url in re.findall(
+                r"(?im)^\s*(?:source|source_url)\s*:\s*(https://[^\s<>]+)", excerpt
+            ):
+                parsed = urlparse(url)
+                if parsed.hostname and not parsed.username and not parsed.password:
+                    urls.append(url)
             return ExternalEvidence(
                 provider="context7",
                 title=f"Context7 indexed docs: {query.library_name}",
-                url="https://context7.com" + library_id,
+                url=urls[0] if urls else "https://context7.com" + library_id,
                 excerpt=excerpt,
                 library=query.library_name,
                 topic="documentation",
+                source_urls=tuple(dict.fromkeys(urls))[:5],
             )
 
 
@@ -172,7 +233,7 @@ async def github_readme(query: GitHubLookup) -> ExternalEvidence:
         env=env,
     )
     async with asyncio.timeout(40):
-        async with Client(params) as client:
+        async with bounded_client(params, "github") as client:
             names = {tool.name for tool in (await client.list_tools()).tools}
             if "get_file_contents" not in names:
                 raise RuntimeError("GitHub read-only tool is missing")
@@ -233,7 +294,7 @@ async def github_issue(query: GitHubIssueLookup) -> ExternalEvidence:
         env=env,
     )
     async with asyncio.timeout(40):
-        async with Client(params) as client:
+        async with bounded_client(params, "github") as client:
             tools = {t.name for t in (await client.list_tools()).tools}
             if "issue_read" not in tools:
                 raise RuntimeError("GitHub issue_read tool is missing")

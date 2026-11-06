@@ -1,0 +1,101 @@
+import copy
+from datetime import datetime, timezone
+
+import pytest
+
+from evals.release_gate import HIGHER, LOWER, REQUIRED_METADATA, SAFETY, compare
+
+
+def valid():
+    report = {
+        "complete": True,
+        "live_generation": True,
+        "cache_hits": 0,
+        "case_ids": ["a"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "source_sha256": "a" * 64,
+        "release_config_sha256": "c" * 64,
+        "image_id": "sha256:" + "b" * 64,
+        "metadata": {k: "value" for k in REQUIRED_METADATA},
+        "safety": {k: True for k in SAFETY},
+        "metrics": {**dict.fromkeys(HIGHER, 0.8), **dict.fromkeys(LOWER, 0.1)},
+        "slices": {"security": {"grounding": 1}},
+        "retrieval_modes": {"dense": {"hit": 1}},
+        "performance": {
+            "warm_p95_seconds": 15,
+            "tokens_per_answer": 1000,
+            "external_calls_per_answer": 2,
+        },
+    }
+
+    report["metadata"]["top_k"] = 8
+    report["generation_requests"] = 2
+    report["repeats"] = 2
+    report["tool_probe"] = {"context7": {"success": True}}
+    report["ranges"] = {}
+    for category in ["metrics", "slices", "retrieval_modes"]:
+        groups = (
+            {"all": report[category]} if category == "metrics" else report[category]
+        )
+        for group, metrics in groups.items():
+            for metric, value in metrics.items():
+                report["ranges"][category + "/" + group + "/" + metric] = {
+                    "min": value,
+                    "max": value,
+                }
+    return report
+
+
+def test_equal_and_better_pass():
+    baseline = valid()
+    candidate = copy.deepcopy(baseline)
+    assert compare(baseline, candidate)["passed"]
+    candidate["metrics"]["grounding"] = 0.9
+    candidate["ranges"]["metrics/all/grounding"] = {"min": 0.9, "max": 0.9}
+    assert compare(baseline, candidate)["passed"]
+
+
+@pytest.mark.parametrize("key", sorted(HIGHER | LOWER))
+def test_each_worse_metric_blocks_without_rounding(key):
+    baseline, candidate = valid(), valid()
+    candidate["metrics"][key] += -1e-12 if key in HIGHER else 1e-12
+    value = candidate["metrics"][key]
+    candidate["ranges"]["metrics/all/" + key] = {"min": value, "max": value}
+    assert not compare(baseline, candidate)["passed"]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda r: r.update(complete=False),
+        lambda r: r.update(live_generation=False),
+        lambda r: r.update(case_ids=[]),
+        lambda r: r.update(cache_hits=1),
+        lambda r: r["metrics"].update(grounding=float("nan")),
+        lambda r: r["metrics"].pop("grounding"),
+        lambda r: r["safety"].update(no_secret_leak=False),
+        lambda r: r["metadata"].update(judge_model="different"),
+        lambda r: r.update(created_at="2000-01-01T00:00:00Z"),
+        lambda r: r.update(slices={}),
+        lambda r: r["performance"].update(tokens_per_answer=100000),
+    ],
+)
+def test_missing_inconclusive_unsafe_or_incompatible_fails_closed(mutation):
+    baseline, candidate = valid(), valid()
+    mutation(candidate)
+    with pytest.raises(ValueError):
+        compare(baseline, candidate)
+    assert baseline == valid() | {"created_at": baseline["created_at"]}
+
+
+def test_stochastic_overlap_fails_closed_even_when_means_match():
+    baseline, candidate = valid(), valid()
+    for report in [baseline, candidate]:
+        report["ranges"]["metrics/all/grounding"] = {"min": 0.7, "max": 0.9}
+    assert not compare(baseline, candidate)["passed"]
+
+
+def test_target_dependency_changes_are_recorded_and_evaluated():
+    baseline, candidate = valid(), valid()
+    candidate["metadata"]["dependency_sha256"] = "new evaluated lock"
+    assert compare(baseline, candidate)["passed"]

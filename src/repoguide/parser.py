@@ -24,6 +24,29 @@ ALLOWED_SUFFIXES = {
     ".jsx",
     ".ts",
     ".tsx",
+    ".toml",
+    ".yaml",
+    ".yml",
+    ".sql",
+    ".css",
+    ".html",
+    ".go",
+    ".rs",
+    ".java",
+    ".tf",
+    ".sh",
+    ".bash",
+    ".txt",
+}
+MANIFEST_NAMES = {
+    "package.json",
+    "requirements.txt",
+    "Pipfile",
+    "Dockerfile",
+    "Makefile",
+    "go.mod",
+    "Cargo.toml",
+    "pom.xml",
 }
 
 MAX_FILE_BYTES = 500_000
@@ -45,11 +68,18 @@ class ParsedChunk:
 
 
 @observed("index.list_files", "CHAIN")
-def collect_source_files(root: Path) -> list[Path]:
+def collect_source_files(root: Path, *, diagnostics: dict | None = None) -> list[Path]:
     files = []
     total_bytes = 0
+    excluded = []
+    skipped_dirs = []
 
     for directory, dirs, filenames in os.walk(root, followlinks=False):
+        skipped_dirs.extend(
+            (Path(directory) / d).relative_to(root).as_posix()
+            for d in dirs
+            if d in SKIP_DIRECTORIES or (Path(directory) / d).is_symlink()
+        )
         dirs[:] = sorted(
             d
             for d in dirs
@@ -61,14 +91,35 @@ def collect_source_files(root: Path) -> list[Path]:
 
             # Never follow symbolic links outside the repository.
             if path.is_symlink() or not path.is_file():
+                excluded.append(
+                    {
+                        "path": path.relative_to(root).as_posix(),
+                        "reason": "symlink or non-regular file",
+                    }
+                )
                 continue
 
-            if path.suffix.lower() not in ALLOWED_SUFFIXES:
+            if (
+                path.suffix.lower() not in ALLOWED_SUFFIXES
+                and path.name not in MANIFEST_NAMES
+            ):
+                excluded.append(
+                    {
+                        "path": path.relative_to(root).as_posix(),
+                        "reason": "unsupported file type",
+                    }
+                )
                 continue
 
             size = path.stat().st_size
 
             if size > MAX_FILE_BYTES:
+                excluded.append(
+                    {
+                        "path": path.relative_to(root).as_posix(),
+                        "reason": "file exceeds 500 KB limit",
+                    }
+                )
                 continue
 
             total_bytes += size
@@ -81,6 +132,13 @@ def collect_source_files(root: Path) -> list[Path]:
             if len(files) > MAX_FILES:
                 raise ValueError("Repository contains too many source files")
 
+    if diagnostics is not None:
+        diagnostics.update(
+            excluded_file_count=len(excluded),
+            excluded_files=excluded[:100],
+            excluded_directories=skipped_dirs[:100],
+            source_bytes=total_bytes,
+        )
     return files
 
 
@@ -229,7 +287,7 @@ def parse_repository(root: Path) -> list[ParsedChunk]:
         if path.suffix.lower() == ".py":
             chunks.extend(parse_python_file(path, root))
 
-        elif path.suffix.lower() in {".md", ".rst", ".js", ".jsx", ".ts", ".tsx"}:
+        else:
             chunks.extend(parse_text_file(path, root))
 
     return chunks

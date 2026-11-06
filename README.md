@@ -62,7 +62,7 @@ Use `KEY=value` lines, optional matching quotes, and full-line comments. Values 
 
 Running API/worker processes hydrate SSM settings at startup. Restart workers and recycle existing Lambda execution environments through your deployment process to pick up updated settings; updating SSM alone does not refresh running processes.
 
-See [AWS and Vercel deployment](docs/M8_AWS_VERCEL_BEGINNER_GUIDE.md) for the full deployment workflow.
+The current architecture, AWS rollout evidence and operating instructions are documented in [deployment handoff](docs/deployment/README.md). Answer generation uses OpenAI on the standard tier with bounded context. Paid comparative evaluation is explicitly skipped for the initial owner-authorized release. The older M8 guide describes the retired architecture and is historical.
 
 ## Checks
 
@@ -82,7 +82,9 @@ Backend tests use mocks and temporary files; they do not require a live database
 - Evidence gathering uses one LangGraph; generation produces one draft followed by citation validation.
 - External tool requests are bounded to allowed tools and validated repository/dependency metadata.
 - Cache keys include repository commit, evidence, provider, answer depth, and tenant context.
-- Local indexing and evaluation jobs run in process; AWS indexing uses SQS/Fargate and durable job status.
-- Local API mutations require loopback requests. Cloud mode uses API Gateway JWT claims and admin/budget controls; online evaluations are disabled there.
+- Local indexing and evaluation jobs run in process. Hosted Answer and Index jobs use independent SQS/Fargate workers with durable status; only an administrator explicitly enables either service.
+- Local API mutations require loopback requests. The cloud ZIP uses read-only Neon browsing, API Gateway JWT claims, administrator compute controls, bounded jobs and rolling 60-minute idle shutdown; hosted evaluations run through a protected release workflow.
 
 The hosted demo is not a multi-tenant production deployment. See the [UI guide](docs/M7_UI_GUIDE.md) and deployment guide for operational limitations. Historical [migration notes](docs/M6_MIGRATION.md) remain available; new installations should apply the complete Alembic migration chain.
+
+Product improvement implementation, migration, verification and rollout status: [product release record](docs/deployment/product-release.md) and [current progress](docs/IMPROVEMENT_STATUS.md). Public repository connections are in scope; private GitHub connections are deferred.

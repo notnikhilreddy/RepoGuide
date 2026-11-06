@@ -8,7 +8,16 @@ import os
 ALLOWED = frozenset(
     {
         "DATABASE_URL",
+        "UPSTASH_REDIS_REST_URL",
+        "UPSTASH_REDIS_REST_TOKEN",
         "LLM_PROVIDER",
+        "OPENAI_API_KEY",
+        "OPENAI_MODEL",
+        "OPENAI_SERVICE_TIER",
+        "OPENAI_REASONING_EFFORT",
+        "OPENAI_MAX_OUTPUT_TOKENS",
+        "OPENAI_MAX_INPUT_CHARS",
+        "CONTEXT_CHAR_BUDGET",
         "GEMINI_API_KEY",
         "GEMINI_MODEL",
         "OPENCODE_API_KEY",

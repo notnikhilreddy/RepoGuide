@@ -39,11 +39,7 @@ def safe(value: Any, *, content: bool = False, depth: int = 0):
         return [safe(v, content=content, depth=depth + 1) for v in list(value)[:20]]
     if isinstance(value, str):
         cleaned = _INLINE_SECRET.sub("[REDACTED]", value)
-        return (
-            cleaned[:12000]
-            if content
-            else {"length": len(value), "preview": cleaned[:80]}
-        )
+        return cleaned[:12000] if content else {"length": len(value)}
     if isinstance(value, (int, float, bool, type(None))):
         return value
     return {"type": type(value).__name__}
@@ -99,10 +95,21 @@ def span(
 ):
     """Capture nested spans and timings; instrumentation must not break requests."""
     from repoguide.config import settings
+    from repoguide.execution import MAJOR_SPANS, stage
 
     begin = time.perf_counter()
-    if not setup_mlflow():
+    if name not in MAJOR_SPANS:
         yield None
+        return
+    if not setup_mlflow():
+        failed = False
+        try:
+            yield None
+        except Exception:
+            failed = True
+            raise
+        finally:
+            stage(name, begin, failed)
         return
     import mlflow
 
@@ -117,6 +124,7 @@ def span(
             active.set_attribute("error.type", type(exc).__name__)
             raise
         finally:
+            stage(name, begin)
             active.set_attribute(
                 "duration_ms", round((time.perf_counter() - begin) * 1000, 2)
             )

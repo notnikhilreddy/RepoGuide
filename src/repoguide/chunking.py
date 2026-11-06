@@ -70,4 +70,17 @@ def parse_repository_m3(root: Path, *, analysis) -> list[ParsedChunk]:
                     start_line=symbol.start_line,
                 )
             )
+        # Preserve module code outside symbol ranges, including late exports,
+        # registration and configuration. A header alone silently lost these.
+        covered = set(range(1, min(45, len(text_lines)) + 1))
+        for symbol in symbols:
+            covered.update(range(symbol.start_line, symbol.end_line + 1))
+        for original in (c for c in baseline if c.file_path == chunk.file_path):
+            if any(
+                i not in covered and text_lines[i - 1].strip()
+                for i in range(
+                    original.start_line, min(original.end_line, len(text_lines)) + 1
+                )
+            ):
+                output.append(original)
     return output

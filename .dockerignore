@@ -18,3 +18,11 @@ mlflow.db
 *.log
 tests
 docs
+
+.artifacts
+reports
+plan.md
+deployment/*.zip
+deployment/*.tar
+
+.vercel

@@ -1,0 +1,12 @@
+{
+  "scope": "initial-openai-deployment",
+  "authorized_on": "2026-11-05",
+  "quality_evaluation": "skipped_by_owner",
+  "reason": "Owner explicitly requested skipping paid CI evaluation and continuing deployment; no passing quality result is claimed.",
+  "source_sha256": "21d534cbf513d1fb893393ee7d131dbc1a25b1be220caef5e9ed539b28661c6f",
+  "release_fingerprint": "e6d2bb0163d23c9f1b3af1af388b36701681dba88224b0c97fb968258c1113e5",
+  "local_image_ids": {
+    "answer": "sha256:c5ecb2b7ffe6668b2ab0c4fe69aace5266ffca8221ff2587e7e50862d3868ced",
+    "index": "sha256:7790d4d9a17556ece4fa9400d10f5e7b93b01af07e78452845aef4fe92f82620"
+  }
+}

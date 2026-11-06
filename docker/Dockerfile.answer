@@ -1,0 +1,23 @@
+FROM python:3.12-slim-trixie@sha256:b18b261e1b4974b4f321451ad5251ded85abb22c2b8b262da527dda1d031ab30 AS build
+COPY --from=ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /usr/local/bin/uv
+WORKDIR /build
+COPY deployment/requirements-answer.txt requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv uv venv /opt/venv && uv pip install --python /opt/venv/bin/python --require-hashes --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match -r requirements.txt
+COPY deployment/models.json models.json
+COPY scripts/preload_models.py preload_models.py
+RUN /opt/venv/bin/python preload_models.py answer
+COPY src/repoguide /build/src/repoguide
+COPY scripts/stage_worker.py stage_worker.py
+RUN /opt/venv/bin/python stage_worker.py answer
+
+FROM python:3.12-slim-trixie@sha256:b18b261e1b4974b4f321451ad5251ded85abb22c2b8b262da527dda1d031ab30
+RUN apt-get update && apt-get install -y --no-install-recommends apt=3.0.4 libapt-pkg7.0=3.0.4 && rm -rf /var/lib/apt/lists/* && useradd -m -u 10001 app && chown app:app /tmp && chmod 1777 /tmp
+COPY --from=build /opt/venv /opt/venv
+COPY --from=build /opt/models /opt/models
+COPY --from=build /opt/app /opt/repoguide
+COPY deployment/release-config.json /opt/repoguide/release-config.json
+ENV PATH="/opt/venv/bin:${PATH}" PYTHONPATH=/opt/repoguide PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HOME=/tmp/hf XDG_CACHE_HOME=/tmp/cache EMBEDDING_MODEL=/opt/models/embedding RERANK_MODEL=/opt/models/reranker TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 MLFLOW_ENABLED=false
+USER app
+WORKDIR /tmp
+VOLUME ["/tmp"]
+CMD ["python", "-m", "repoguide.cloud_worker"]

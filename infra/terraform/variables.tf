@@ -1,6 +1,6 @@
 variable "aws_region" {
   type    = string
-  default = "us-east-1"
+  default = "us-east-2"
 }
 variable "project" {
   type    = string
@@ -8,26 +8,51 @@ variable "project" {
 }
 variable "frontend_origin" {
   type    = string
-  default = "http://localhost:5173"
+  default = "https://repo-guide-five.vercel.app"
 }
-variable "api_image_uri" {
-  type        = string
-  description = "An ECR image URL (tag or digest). Build/push before final apply."
-}
-variable "worker_image_uri" {
-  type        = string
-  description = "An ECR image URL (tag or digest). Build/push before final apply."
-}
-variable "ssm_parameter_name" {
-  type    = string
-  default = "/repoguide/demo/runtime"
-}
-variable "alert_email" {
-  type        = string
-  description = "Email for cost/error alerts"
-}
-variable "github_oidc_subject" {
+variable "validation_frontend_origin" {
   type        = string
   default     = ""
-  description = "Optional GitHub OIDC: exact token sub claim for main branch (newer repos may use org/repo IDs)"
+  description = "Temporary exact Vercel deployment origin for live browser verification; remove after cutover."
+  validation {
+    condition     = var.validation_frontend_origin == "" || can(regex("^https://[a-z0-9-]+\\.vercel\\.app$", var.validation_frontend_origin))
+    error_message = "Validation origin must be a single HTTPS Vercel deployment hostname."
+  }
+}
+variable "worker_image_uris" {
+  type        = map(string)
+  default     = {}
+  description = "Only evaluated ECR image digests keyed by answer and index."
+  validation {
+    condition     = alltrue([for image in values(var.worker_image_uris) : can(regex("@sha256:[0-9a-f]{64}$", image))])
+    error_message = "Workers must use immutable image digests."
+  }
+}
+variable "worker_sizes" {
+  type = map(object({ cpu = number, memory = number }))
+  default = {
+    answer = { cpu = 1024, memory = 4096 }
+    index  = { cpu = 1024, memory = 4096 }
+  }
+}
+variable "ssm_prefix" {
+  type    = string
+  default = "/repoguide/demo"
+}
+variable "alert_email" {
+  type    = string
+  default = "nikhilreddy.maligireddy2@gmail.com"
+}
+variable "release_id" {
+  type    = string
+  default = "unreleased"
+}
+variable "github_oidc_subject" {
+  type    = string
+  default = "repo:notnikhilreddy/RepoGuide:environment:production"
+}
+variable "enable_public_registration" {
+  description = "Enable only after the new API's ownership and durable conversation smoke tests pass."
+  type        = bool
+  default     = false
 }

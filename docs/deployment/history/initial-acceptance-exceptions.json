@@ -1,0 +1,10 @@
+{
+  "release_id": "release-e6d2bb0163d23c9f",
+  "idle_verification": {
+    "status": "skipped_by_owner",
+    "authorized_at": "2026-11-05",
+    "instruction": "you don't have to test the worker 1hr idle time as it takes too long. I'll verify it later",
+    "sixty_minute_shutdown_verified": false,
+    "minute_59_reset_verified": false
+  }
+}

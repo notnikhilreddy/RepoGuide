@@ -22,6 +22,8 @@ def identity() -> ProviderIdentity:
     p = settings.llm_provider
     if p == "gemini":
         return ProviderIdentity(p, settings.gemini_model)
+    if p == "openai":
+        return ProviderIdentity(p, settings.openai_model)
     if p == "opencode":
         return ProviderIdentity(p, settings.opencode_model)
     if p == "ollama":
@@ -64,20 +66,58 @@ def stream(prompt: str) -> Iterator[str]:
                 if delta:
                     delivered = True
                     yield delta
-        elif provider == "opencode":
-            events = llm.get_opencode_client().responses.create(
-                model=settings.opencode_model,
-                instructions=llm.SYSTEM_PROMPT,
-                input=prompt,
-                max_output_tokens=3500,
-                stream=True,
+        elif provider in {"opencode", "openai"}:
+            client = (
+                llm.get_openai_client()
+                if provider == "openai"
+                else llm.get_opencode_client()
             )
+            request = (
+                llm.openai_request(prompt)
+                if provider == "openai"
+                else {
+                    "model": settings.opencode_model,
+                    "instructions": llm.SYSTEM_PROMPT,
+                    "input": prompt,
+                    "max_output_tokens": 3500,
+                }
+            )
+            events = client.responses.create(**request, stream=True)
+            phases, buffered = {}, {}
             for event in events:
+                event_type = getattr(event, "type", "")
+                index = getattr(event, "output_index", 0)
+                if provider == "openai" and event_type in {
+                    "response.output_item.added",
+                    "response.output_item.done",
+                }:
+                    item = getattr(event, "item", None)
+                    if getattr(item, "type", None) == "message":
+                        phases[index] = getattr(item, "phase", None)
+                        if event_type.endswith(".done"):
+                            pending = buffered.pop(index, "")
+                            if pending and phases[index] != "commentary":
+                                delivered = True
+                                yield pending
+                if provider == "openai" and getattr(event, "type", "") in {
+                    "error",
+                    "response.failed",
+                    "response.incomplete",
+                }:
+                    raise ValueError("OpenAI stream did not complete")
                 if getattr(event, "type", "") == "response.output_text.delta":
                     delta = getattr(event, "delta", "")
                     if delta:
+                        if provider == "openai" and index in phases:
+                            if phases[index] == "commentary":
+                                continue
+                            if phases[index] is None:
+                                buffered[index] = buffered.get(index, "") + delta
+                                continue
                         delivered = True
                         yield delta
+            if provider == "openai" and not delivered:
+                raise ValueError("OpenAI stream did not return a final answer")
         elif provider == "ollama":
             # Ollama OpenAI-compatible chat streaming is more widely supported
             # than the Responses streaming surface across Ollama releases.
@@ -99,6 +139,6 @@ def stream(prompt: str) -> Iterator[str]:
         else:
             raise ValueError(f"Unsupported provider: {provider}")
     except Exception:
-        if delivered:
+        if delivered or provider == "openai":
             raise  # never silently append a second answer after partial output
         yield complete(prompt)

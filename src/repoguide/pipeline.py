@@ -18,7 +18,9 @@ from repoguide.answers import (
     validate_draft,
 )
 from repoguide.cache import load_result, result_key, save_result
+from repoguide.execution import metrics, request_scope
 from repoguide.provider import complete, identity, stream
+from repoguide.retrieval_context import bounded_history
 from repoguide.telemetry import feedback, record, span
 from repoguide.workflow import gather_evidence, graph
 
@@ -74,12 +76,13 @@ def _cache_key(state: dict, depth: str, tenant: str) -> str:
     state = {
         **state,
         "question": state["question"]
-        + f"|answer_depth={depth}|tenant={tenant}|prompt=v6",
+        + f"|answer_depth={depth}|tenant={tenant}|prompt=v7|history="
+        + json.dumps(state.get("history", []), sort_keys=True),
     }
     return result_key(state, provider.provider, provider.model)
 
 
-def _gather(repo_id, question, top_k, docs_policy, retrieval_mode):
+def _gather(repo_id, question, top_k, docs_policy, retrieval_mode, **extra):
     with span(
         "agent.evidence_graph",
         "AGENT",
@@ -97,6 +100,7 @@ def _gather(repo_id, question, top_k, docs_policy, retrieval_mode):
             top_k=top_k,
             docs_policy=docs_policy,
             retrieval_mode=retrieval_mode,
+            **extra,
         )
         record(
             sp,
@@ -109,7 +113,7 @@ def _gather(repo_id, question, top_k, docs_policy, retrieval_mode):
         return data
 
 
-def _gather_events(repo_id, question, top_k, docs_policy, retrieval_mode):
+def _gather_events(repo_id, question, top_k, docs_policy, retrieval_mode, **extra):
     """Yield actual completed LangGraph nodes for streaming UI progress.
 
     The routing update is emitted *before* the external tool node executes,
@@ -122,6 +126,7 @@ def _gather_events(repo_id, question, top_k, docs_policy, retrieval_mode):
         "docs_policy": docs_policy,
         "retrieval_mode": retrieval_mode,
         "trace": [],
+        **extra,
     }
     with span(
         "agent.evidence_graph",
@@ -158,22 +163,53 @@ def answer(
     retrieval_mode: str = "hybrid",
     answer_depth: str = "auto",
     tenant: str = "local",
+    progress=None,
+    history: list[dict] | None = None,
+    focus: dict | None = None,
 ) -> AnswerResult:
+    history = bounded_history(history)
     depth = _depth(question, answer_depth)
-    with span(
-        "repoguide.ask",
-        "CHAIN",
-        {
-            "repo_id": repo_id,
-            "question": question,
-            "top_k": top_k,
-            "docs_policy": docs_policy,
-            "retrieval_mode": retrieval_mode,
-            "answer_depth": depth,
-        },
-        {"pipeline.version": "6", "tenant": tenant},
-    ) as root:
-        state = _gather(repo_id, question, top_k, docs_policy, retrieval_mode)
+    with (
+        request_scope() as execution,
+        span(
+            "repoguide.ask",
+            "CHAIN",
+            {
+                "repo_id": repo_id,
+                "question": question,
+                "top_k": top_k,
+                "docs_policy": docs_policy,
+                "retrieval_mode": retrieval_mode,
+                "answer_depth": depth,
+            },
+            {"pipeline.version": "7"},
+        ) as root,
+    ):
+        if progress:
+            for node, state in _gather_events(
+                repo_id,
+                question,
+                top_k,
+                docs_policy,
+                retrieval_mode,
+                history=history or [],
+                focus=focus or {},
+                tenant=tenant,
+                progress=progress,
+            ):
+                pass  # Nodes emit their real starting stages; no simulated percentages.
+        else:
+            state = _gather(
+                repo_id,
+                question,
+                top_k,
+                docs_policy,
+                retrieval_mode,
+                history=history or [],
+                focus=focus or {},
+                tenant=tenant,
+            )
+        state["history"] = history or []
         if not state.get("sources") and not state.get("external_evidence"):
             output = abstain(state, "No usable evidence")
         else:
@@ -187,6 +223,8 @@ def answer(
             else:
                 prompt = prompt_for_evidence(state, depth)
                 try:
+                    if progress:
+                        progress("generation", 70, "Generating answer")
                     with span(
                         "answer.generate",
                         "LLM",
@@ -195,6 +233,10 @@ def answer(
                     ) as gen:
                         raw = complete(prompt)
                         record(gen, {"generated": raw}, output_chars=len(raw))
+                    if progress:
+                        progress(
+                            "validation", 90, "Validating citations and answer schema"
+                        )
                     output = _validate(raw, state, depth)
                 except InvalidGeneration:
                     # Do not run a second paid generation automatically.
@@ -208,7 +250,16 @@ def answer(
                         save_result(key, output.model_dump(exclude={"trace_id"}))
                         record(write, {"stored": True})
         output.answer_depth = depth
-        output.trace_id = str(getattr(root, "trace_id", "")) or None
+        output.trace_id = str(getattr(root, "trace_id", "")) or execution["trace_id"]
+        output.diagnostics = {
+            **state.get("diagnostics", {}),
+            "routing": state.get("routing", {}),
+            "limitations": output.limitations,
+            "rejected_labels": output.rejected_labels,
+            "verification_scope": output.verification_scope,
+        }
+        output.timeline = sorted(execution["stages"], key=lambda e: e["started_ms"])
+        output.usage = metrics(execution)
         record(
             root,
             output.model_dump(),
@@ -243,12 +294,15 @@ def stream_answer(
     retrieval_mode: str = "hybrid",
     answer_depth: str = "auto",
     tenant: str = "local",
+    history: list[dict] | None = None,
+    focus: dict | None = None,
 ) -> Iterator[str]:
     """SSE: status and provisional draft events; final is authoritative.
 
     Generation remains single-pass. The draft is unverified and must be replaced
     in the UI by the validated final response or discarded on error.
     """
+    history = bounded_history(history)
     depth = _depth(question, answer_depth)
     try:
         with span(
@@ -259,7 +313,13 @@ def stream_answer(
             yield _event("status", {"step": "retrieving"})
             state = {}
             for node_name, current in _gather_events(
-                repo_id, question, top_k, docs_policy, retrieval_mode
+                repo_id,
+                question,
+                top_k,
+                docs_policy,
+                retrieval_mode,
+                history=history,
+                focus=focus or {},
             ):
                 state = current
                 if node_name == "retrieve":

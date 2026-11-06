@@ -1,34 +1,25 @@
 import type {ReactNode} from 'react';
 import {useEffect,useState} from 'react';
-import {authEnabled,authManager} from '../lib/auth';
-let callbackOnce: Promise<void> | null = null;
+import {ArrowRight,Braces,Check,GitBranch,LoaderCircle,MessageSquareText,ShieldCheck,TerminalSquare} from 'lucide-react';
+import {authEnabled,authManager,cognito} from '../lib/auth';
+let callbackOnce:Promise<void>|null=null;
 
+type Screen='welcome'|'signup'|'verify'|'recover'|'reset';
 export function AuthGate({children}:{children:ReactNode}){
-  const [status,setStatus]=useState<'loading'|'ready'|'login'|'error'>(authEnabled?'loading':'ready');
-  const [message,setMessage]=useState('');
-  useEffect(()=>{
-    if(!authManager)return;
-    let live=true;
-    (async()=>{
-      try{
-        if(new URLSearchParams(location.search).has('code')){
-          if(!callbackOnce)callbackOnce=authManager.signinRedirectCallback().then(()=>{history.replaceState({},'', '/');});
-          await callbackOnce;
-        }
-        const user=await authManager.getUser();
-        if(live)setStatus(user && !user.expired?'ready':'login');
-      }catch(e){if(live){setMessage(e instanceof Error?e.message:'Authentication failed');setStatus('error')}}
-    })();
-    return()=>{live=false};
+  const [status,setStatus]=useState<'loading'|'ready'|'login'>(authEnabled?'loading':'ready');const [screen,setScreen]=useState<Screen>('welcome');const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[code,setCode]=useState(''),[message,setMessage]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
+  useEffect(()=>{if(!authManager)return;let live=true;const expired=()=>{if(live){setStatus('login');setNotice('Your session expired. Sign in to resume your saved conversations.')}};const ready=()=>{if(live)setStatus('ready')};authManager.events.addUserLoaded(ready);authManager.events.addUserSignedOut(expired);authManager.events.addSilentRenewError(expired);
+    void(async()=>{try{const query=new URLSearchParams(location.search);if(query.has('code')||query.has('error')){if(!callbackOnce)callbackOnce=authManager!.signinRedirectCallback().then(()=>{history.replaceState({},'','/')});await callbackOnce}const user=await authManager!.getUser();if(live)setStatus(user&&!user.expired?'ready':'login')}catch(e){if(live){setMessage(e instanceof Error?e.message:'Sign-in failed. Please try again.');setStatus('login')}}})();return()=>{live=false;authManager?.events.removeUserLoaded(ready);authManager?.events.removeUserSignedOut(expired);authManager?.events.removeSilentRenewError(expired)}
   },[]);
   if(status==='ready')return <>{children}</>;
-  return <div style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'#0d1117',color:'#e6edf3',fontFamily:'system-ui'}}>
-    <div style={{maxWidth:440,padding:40,border:'1px solid #30363d',borderRadius:14}}>
-      <h2>RepoGuide</h2><p style={{color:'#8b949e'}}>Private engineering demo</p>
-      {status==='loading'?<p>Checking session…</p>:<>
-        {status==='error'&&<p role="alert">{message}</p>}
-        <button onClick={()=>void authManager?.signinRedirect()} style={{padding:'10px 18px',background:'#238636',border:0,color:'white',borderRadius:6,cursor:'pointer'}}>Sign in with Cognito</button>
-      </>}
-    </div>
-  </div>
+  function navigate(next:Screen){setScreen(next);setMessage('');setNotice('');setPassword('');setCode('')}
+  async function submit(event:React.FormEvent){event.preventDefault();setBusy(true);setMessage('');setNotice('');try{
+    if(screen==='signup'){await cognito('SignUp',{Username:email.trim(),Password:password,UserAttributes:[{Name:'email',Value:email.trim()}]});setScreen('verify');setPassword('');setNotice('Check your email for a verification code.')}
+    else if(screen==='verify'){await cognito('ConfirmSignUp',{Username:email.trim(),ConfirmationCode:code.trim()});setScreen('welcome');setCode('');setNotice('Email verified. You can now sign in.')}
+    else if(screen==='recover'){await cognito('ForgotPassword',{Username:email.trim()});setScreen('reset');setNotice('If your account is eligible, a reset code has been sent to your email.')}
+    else if(screen==='reset'){await cognito('ConfirmForgotPassword',{Username:email.trim(),ConfirmationCode:code.trim(),Password:password});setPassword('');setCode('');setScreen('welcome');setNotice('Password updated. Sign in to continue.')}
+  }catch(e){setMessage(e instanceof Error?e.message:'Please try again.')}finally{setBusy(false)}}
+  async function resend(){setBusy(true);try{await cognito('ResendConfirmationCode',{Username:email.trim()});setNotice('A new verification code has been sent.');setMessage('')}catch(e){setMessage(e instanceof Error?e.message:'Could not resend code')}finally{setBusy(false)}}
+  async function signin(){setBusy(true);setMessage('');try{await authManager?.signinRedirect()}catch(e){setBusy(false);setMessage(e instanceof Error?e.message:'Sign-in unavailable')}}
+  const titles:Record<Screen,string>={welcome:'Your codebase, in focus.',signup:'Create your workspace.',verify:'Check your inbox.',recover:'Let’s get you back in.',reset:'Choose a new password.'};
+  return <div className="landing-page"><header className="landing-header"><a href="/" className="landing-brand"><span className="brand-mark"><TerminalSquare size={21}/></span>RepoGuide</a><span className="landing-demo-badge">PUBLIC DEMO</span><button className="subtle-btn" disabled={status==='loading'||busy} onClick={()=>void signin()}>Sign in<ArrowRight size={14}/></button></header><main className="landing-main"><section className="landing-story"><div className="landing-eyebrow"><span className="live-dot"/>FROM SOURCE TO UNDERSTANDING</div><h1>Get to know<br/>your code.<br/><span>Beyond the files.</span></h1><p>A clear map of your repository. Answers grounded in source. Conversations that pick up where you left off.</p><div className="landing-feature-list"><span><GitBranch size={17}/>Explore architecture, one level at a time</span><span><MessageSquareText size={17}/>Ask follow-ups across your codebase</span><span><ShieldCheck size={17}/>Follow every answer back to its evidence</span></div><div className="landing-source-note"><Braces size={15}/><span>Public GitHub repositories · Private conversations</span></div></section><section className="landing-auth"><div className="landing-card"><span className="eyebrow">A BETTER WAY TO EXPLORE</span><h2>{titles[screen]}</h2><p>{screen==='welcome'?'Sign in to explore the demo and save your own conversations.':screen==='signup'?'Start with your email. Your workspace and conversations belong to you.':screen==='verify'?`Enter the code sent to ${email}.`:screen==='recover'?'Enter your account email to request a password reset code.':'Enter the code from your email and a new password.'}</p>{status==='loading'?<div className="state"><LoaderCircle className="spin" size={18}/>Checking your session…</div>:<>{notice&&<div className="auth-notice" role="status"><Check size={15}/>{notice}</div>}{message&&<div className="auth-error" role="alert">{message}</div>}{screen==='welcome'?<><button className="primary-btn landing-primary" disabled={busy} onClick={()=>void signin()}>{busy?<LoaderCircle className="spin" size={17}/>:'Sign in securely'}<ArrowRight size={16}/></button><button className="subtle-btn landing-secondary" disabled={busy} onClick={()=>navigate('signup')}>Create an account</button><button className="text-link auth-recovery" onClick={()=>navigate('recover')}>Forgot your password?</button></>:<form className="auth-form" onSubmit={e=>void submit(e)}>{(screen==='signup'||screen==='recover')&&<label>Email address<input type="email" autoComplete="email" required autoFocus value={email} onChange={e=>setEmail(e.target.value)} maxLength={254} placeholder="you@example.com"/></label>}{(screen==='verify'||screen==='reset')&&<label>Verification code<input autoFocus autoComplete="one-time-code" inputMode="numeric" required pattern="[0-9]{6}" maxLength={6} value={code} onChange={e=>setCode(e.target.value)} placeholder="6-digit code"/></label>}{(screen==='signup'||screen==='reset')&&<label>Password<input aria-label="Password" aria-describedby="password-requirements" type="password" autoComplete="new-password" required minLength={12} maxLength={256} value={password} onChange={e=>setPassword(e.target.value)}/><small id="password-requirements">12+ characters, with uppercase, lowercase, a number, and a symbol.</small></label>}<button className="primary-btn landing-primary" disabled={busy}>{busy?<LoaderCircle className="spin" size={16}/>:screen==='signup'?'Create account':screen==='verify'?'Verify email':screen==='recover'?'Send reset code':'Update password'}<ArrowRight size={15}/></button>{screen==='verify'&&<button className="text-link" type="button" disabled={busy} onClick={()=>void resend()}>Resend verification code</button>}<button className="text-link" type="button" onClick={()=>navigate('welcome')}>Back to sign in</button></form>}<p className="auth-security-note"><ShieldCheck size={13}/>Your workspace is private. AI availability is managed by the demo administrator.</p></>}</div></section></main><footer className="landing-footer"><span>Built for the questions between the lines.</span><span>RepoGuide · Source-grounded code exploration</span></footer></div>
 }

@@ -32,6 +32,8 @@ class Query(BaseModel):
         "hybrid_graph_rerank",
     ] = "hybrid"
     answer_depth: Literal["auto", "concise", "standard", "detailed"] = "auto"
+    history: list[dict] = Field(default_factory=list, max_length=6)
+    focus: dict = Field(default_factory=dict)
 
 
 class FeedbackRequest(BaseModel):

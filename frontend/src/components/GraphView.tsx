@@ -1,92 +1,22 @@
-import {useEffect,useMemo,useRef,useState} from 'react';
-import {Background,Controls,MiniMap,ReactFlow,MarkerType,type Edge,type Node,type NodeMouseHandler} from '@xyflow/react';
-import {Activity,ArrowRight,Braces,Expand,Filter,GitFork,Pause,Play,Search} from 'lucide-react';
-import type {GraphData,GraphNode,Repo} from '../lib/types';
+import {useEffect,useState} from 'react';
+import {ArrowDownLeft,ArrowRight,ArrowUpRight,Braces,ChevronRight,Folder,Layers3,Search,X} from 'lucide-react';
+import type {Architecture,ArchitectureNode,AskContext,Repo} from '../lib/types';
 import {api} from '../lib/api';
 import {Empty,ErrorPanel,Loading,PaneTitle} from './Shared';
 
-function positionGraph(data:GraphData,visible:Set<string>):Node[]{
-  const byFile=new Map<string,GraphNode[]>();
-  data.nodes.filter(n=>visible.has(n.id)).forEach(node=>{
-    const list=byFile.get(node.file_path)||[];list.push(node);byFile.set(node.file_path,list);
-  });
-  const files=[...byFile.keys()].sort();
-  const columns=Math.max(1,Math.ceil(Math.sqrt(files.length||1)));
-  const groups=Array.from({length:Math.ceil(files.length/columns)},(_,row)=>files.slice(row*columns,(row+1)*columns));
-  const heights=groups.map(row=>Math.max(190,...row.map(f=>(byFile.get(f)?.length||1)*72+45)));
-  const offsets=heights.map((_,i)=>heights.slice(0,i).reduce((sum,h)=>sum+h+35,0));
-  return files.flatMap((file,group)=>{
-    const list=byFile.get(file)||[]; const row=Math.floor(group/columns);
-    return list.map((n,i)=>({id:n.id,type:'default',position:{x:(group%columns)*310,
-      y:offsets[row]+i*72},
-      data:{label:<div className="graph-node-inner"><span className="graph-node-kind">{n.kind}</span><strong title={n.label}>{n.label.split('.').slice(-2).join('.')}</strong><small title={file}>{file.split('/').slice(-2).join('/')}</small></div>},
-      className:'code-graph-node',draggable:false,connectable:false,selectable:true,
-      style:{width:245}}));
-  });
-}
-export function GraphView({repo,onFile}:{repo:Repo;onFile:(path:string,line?:number)=>void}){
-  const [data,setData]=useState<GraphData|null>(null);const [error,setError]=useState('');
-  const [query,setQuery]=useState('');const [kind,setKind]=useState('all');
-  const [selected,setSelected]=useState<string|null>(null);const [playing,setPlaying]=useState(false);
-  const [step,setStep]=useState(0);const [traceNodes,setTraceNodes]=useState<string[]>([]);
-  const [showOnlyConnected,setShowOnlyConnected]=useState(false);
-  useEffect(()=>{let ok=true;api.graph(repo.id,1500).then(x=>{if(ok)setData(x)}).catch(e=>{if(ok)setError(String(e))});return()=>{ok=false}},[repo.id]);
-  const byId=useMemo(()=>new Map((data?.nodes||[]).map(n=>[n.id,n])),[data]);
-  const adjacency=useMemo(()=>{
-    const map=new Map<string,string[]>();
-    data?.edges.forEach(e=>{if(e.target){const prev=map.get(e.source)||[];prev.push(e.target);map.set(e.source,prev)}});
-    return map;
-  },[data]);
-  const path=useMemo(()=>{
-    if(!selected)return [];
-    const queue=[selected],visited=new Set([selected]),order:string[]=[];
-    while(queue.length&&order.length<40){const current=queue.shift()!;order.push(current);
-      for(const next of adjacency.get(current)||[]){if(!visited.has(next)){visited.add(next);queue.push(next)}}}
-    return order;
-  },[selected,adjacency]);
-  useEffect(()=>{setTraceNodes([]);setStep(0);setPlaying(false)},[selected]);
-  useEffect(()=>{if(!playing)return;const timer=window.setInterval(()=>{setStep(i=>{
-    if(i>=path.length){setPlaying(false);return i}setTraceNodes(path.slice(0,i+1));return i+1;
-  })},550);return()=>window.clearInterval(timer)},[playing,path]);
-  const filtered=useMemo(()=>{
-    const base=(data?.nodes||[]).filter(n=>(kind==='all'||n.kind===kind)&&`${n.label} ${n.file_path}`.toLowerCase().includes(query.toLowerCase()));
-    const ids=new Set(base.map(x=>x.id));
-    if(showOnlyConnected&&selected){return new Set([...ids].filter(id=>id===selected||
-      (data?.edges||[]).some(e=>(e.source===selected&&e.target===id)||(e.target===selected&&e.source===id))))}
-    return ids;
-  },[data,query,kind,showOnlyConnected,selected]);
-  const active=new Set(traceNodes);
-  const nodes=useMemo(()=>positionGraph(data||{nodes:[],edges:[]},filtered).map(n=>({...n,
-    className:'code-graph-node '+(selected===n.id?'selected-node ':'')+(active.has(n.id)?'visited-node':''),
-  })),[data,filtered,selected,traceNodes]);
-  const edges:Edge[]=useMemo(()=>data?.edges.filter(e=>e.target&&filtered.has(e.source)&&filtered.has(e.target))
-    .map(e => {const lit = active.has(e.source) && e.target !== null && active.has(e.target);
-      return {id:e.id,source:e.source,target:e.target!,label:e.kind==='contains'?undefined:e.kind,
-        animated:lit,style:{stroke:lit?'#6bbcb4':'#506071',strokeWidth:lit?2.6:1.2,opacity:lit?1:.64},
-        labelStyle:{fill:'#98a8b9',fontSize:10},markerEnd:{type:MarkerType.ArrowClosed,width:12,height:12,color:lit?'#6bbcb4':'#506071'},
-        type:'smoothstep'};
-    })||[],[data,filtered,traceNodes]);
-  const chosen=selected?byId.get(selected):undefined;
-  const nodeSelect:NodeMouseHandler=(_,node)=>setSelected(node.id);
-  const kinds=useMemo(()=>[...new Set((data?.nodes||[]).map(n=>n.kind))].sort(),[data]);
-  return <div className="page graph-page entrance"><PaneTitle eyebrow="STRUCTURAL INTELLIGENCE" title="Architecture graph" detail="Trace resolved code relationships. Highlighted edges reflect real parsed links—not a synthetic animation." right={<span className="tiny-count">{data?.nodes.length||0} symbols · {data?.edges.filter(x=>x.resolved).length||0} resolved edges</span>}/>
-    {error?<ErrorPanel message={error}/>:!data?<Loading label="Loading code relationships…"/>:data.nodes.length===0?<Empty title="No graph data" description="Index or refresh a repository to extract symbols and call relationships."/>:<>
-      <div className="graph-controls"><div className="searchbox"><Search size={16}/><input placeholder="Search symbols or files…" value={query} onChange={e=>setQuery(e.target.value)}/></div>
-        <div className="filter-box"><Filter size={15}/><select value={kind} onChange={e=>setKind(e.target.value)}><option value="all">All kinds</option>{kinds.map(x=><option key={x} value={x}>{x}</option>)}</select></div>
-        <label className="switch-label"><input type="checkbox" checked={showOnlyConnected} onChange={e=>setShowOnlyConnected(e.target.checked)}/> Neighbors only</label>
-        <button className="subtle-btn" disabled={!selected||path.length<2} onClick={()=>{if(step>=path.length){setStep(0);setTraceNodes([])}setPlaying(v=>!v)}}>{playing?<Pause size={15}/>:<Play size={15}/>} {playing?'Pause trace':'Trace flow'}</button>
-        <span className="trace-progress">{step&&path.length?`${Math.min(step,path.length)}/${path.length} visited`:''}</span>
-      </div>
-      <div className="graph-workspace"><div className="graph-canvas"><ReactFlow nodes={nodes} edges={edges} onNodeClick={nodeSelect} fitView minZoom={.15} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} proOptions={{hideAttribution:true}}><Background gap={20} size={1} color="var(--graph-grid)"/><Controls showInteractive={false}/><MiniMap pannable zoomable nodeColor="var(--accent-muted)" style={{background:'var(--surface)'}}/></ReactFlow><div className="canvas-help"><GitFork size={13}/> Click a node to inspect · Trace follows outgoing resolved calls</div></div>
-        <aside className="graph-inspector"><div className="section-heading"><h3>Symbol inspector</h3><Activity size={16}/></div>{!chosen?<Empty title="Select a symbol" description="Inspect definition, location and outgoing relationships."/>:<>
-          <span className="chip">{chosen.kind}</span><h3 className="inspector-name">{chosen.label}</h3><div className="mono-muted">{chosen.file_path}</div>
-          <div className="inspector-stats"><div><span>Outgoing</span><strong>{data.edges.filter(x=>x.source===chosen.id).length}</strong></div><div><span>Incoming</span><strong>{data.edges.filter(x=>x.target===chosen.id).length}</strong></div></div>
-          <button className="primary-btn block" onClick={()=>onFile(chosen.file_path,chosen.start_line)}><Braces size={16}/> Open in explorer <ArrowRight size={15}/></button>
-          <div className="inspector-divider"/><div className="field-label">OUTGOING CONNECTIONS</div>
-          {data.edges.filter(x=>x.source===chosen.id).slice(0,25).map(e=><button className="connection-row" key={e.id} onClick={()=>e.target&&setSelected(e.target)} disabled={!e.target}><GitFork size={13}/><span title={e.target_name}>{e.target_name}</span><small>{e.kind}</small></button>)}
-          {data.edges.filter(x=>x.source===chosen.id).length===0&&<p className="micro-muted">No outgoing relationships extracted.</p>}
-        </>}</aside></div>
-      <div className="footnote">Static analysis is conservative. Dynamic dispatch and unresolved calls may be absent. For very large repositories, this view samples up to 1,500 stored edges.</div>
-    </>}
-  </div>
+export function GraphView({repo,onFile,onAsk}:{repo:Repo;onFile:(path:string,line?:number)=>void;onAsk?:(context:AskContext)=>void}){
+  const [scope,setScope]=useState('');const [serverQuery,setServerQuery]=useState('');const [limit,setLimit]=useState(12);const [data,setData]=useState<Architecture|null>(null);const [selected,setSelected]=useState<ArchitectureNode|null>(null);const [query,setQuery]=useState('');const [error,setError]=useState('');
+  useEffect(()=>{let live=true;setError('');setData(null);setSelected(null);api.architecture(repo.id,scope,serverQuery,limit).then(x=>{if(live)setData(x)}).catch(e=>{if(live)setError(e instanceof Error?e.message:'Architecture unavailable')});return()=>{live=false}},[repo.id,scope,serverQuery,limit]);
+  useEffect(()=>{setQuery('');setServerQuery('');setLimit(scope?40:12)},[scope]);
+  useEffect(()=>{const timer=window.setTimeout(()=>setServerQuery(query),250);return()=>clearTimeout(timer)},[query]);
+  const nodes=data?.nodes.filter(n=>(n.label+' '+n.scope).toLowerCase().includes(query.toLowerCase()))||[];
+  const crumbs=scope==='@root'?['Repository files']:scope.split('/').filter(Boolean);
+  function ask(node:ArchitectureNode){onAsk?.({id:crypto.randomUUID(),question:`Explain ${node.scope==='@root'?'the repository-level files':node.scope} and how it connects to the rest of this repository.`,...(node.kind==='file'?{focus:{path:node.preview_path}}:{})})}
+  return <div className="page entrance"><PaneTitle eyebrow="CODE ARCHITECTURE" title="A map you can follow" detail="Start with modules. Open a group to see its files and the relationships parsed from source." right={<span className="tiny-count"><Layers3 size={14}/>{data?.total_nodes??'—'} groups in this view</span>}/>
+    <section className="panel module-map"><div className="module-map-toolbar"><nav className="module-breadcrumbs" aria-label="Architecture location"><button onClick={()=>setScope('')}>{repo.name.split('/').pop()}</button>{crumbs.map((crumb,i)=><span key={i}><ChevronRight size={13}/><button onClick={()=>setScope(scope==='@root'?'@root':crumbs.slice(0,i+1).join('/'))}>{crumb}</button></span>)}</nav><label className="module-search"><Search size={15}/><input aria-label="Search modules and files" placeholder="Filter this view…" value={query} onChange={e=>setQuery(e.target.value)}/></label></div>
+    {error?<ErrorPanel message={error}/>:!data?<Loading label="Reading the indexed architecture…"/>:nodes.length===0?<Empty title="No matching modules" description="Try another search or return to the repository root."/>:<><div className="module-grid">{nodes.map(node=>{const incoming=data.edges.filter(e=>e.target===node.id).length,outgoing=data.edges.filter(e=>e.source===node.id).length;return <div className={'module-card '+(selected?.id===node.id?'selected':'')} key={node.id}><button className="module-card-main" onClick={()=>{if(node.kind==='module'){setScope(node.scope);setQuery('')}else setSelected(node)}}><div className="module-icon">{node.kind==='file'?<Braces size={21}/>:<Folder size={21}/>}</div><h3>{node.label}</h3><p>{node.files} {node.files===1?'file':'files'} · {node.symbols} symbols</p><span>{node.kind==='module'?'Explore group':'Inspect file'}<ArrowRight size={14}/></span></button><div className="module-card-footer"><span><ArrowDownLeft size={12}/>{incoming}<ArrowUpRight size={12}/>{outgoing}</span><button onClick={()=>setSelected(node)}>Details<ChevronRight size={13}/></button></div></div>})}</div>{data.total_nodes>data.nodes.length&&limit<60&&<button className="subtle-btn" onClick={()=>setLimit(60)}>Show more groups<ChevronRight size={14}/></button>}{data.truncated&&<p className="limit-note">This view is bounded for large repositories. Expand a module to explore more detail; the relationship list may be partial.</p>}
+    {data.edges.length>0&&<details className="module-relationships"><summary>{data.edges.length} relationships between these groups</summary><div>{data.edges.slice(0,30).map((edge,i)=><button key={i} onClick={()=>setSelected(data.nodes.find(n=>n.id===edge.source)||null)}><code>{edge.source}</code><span>{edge.kind}<ArrowRight size={13}/></span><code>{edge.target}</code><small>{edge.count} references</small></button>)}</div></details>}</>}
+    </section>
+    {selected&&<section className="panel module-details"><div className="section-heading"><div><span className="eyebrow">{selected.kind}</span><h3>{selected.scope==='@root'?'Repository files':selected.scope}</h3></div><button className="icon-btn" title="Close details" onClick={()=>setSelected(null)}><X size={16}/></button></div><div className="module-detail-actions"><button className="primary-btn" onClick={()=>ask(selected)}>Ask about this<ArrowRight size={14}/></button><button className="subtle-btn" onClick={()=>onFile(selected.preview_path)}><Braces size={14}/>Preview indexed code</button>{selected.kind==='module'&&<button className="subtle-btn" onClick={()=>{setScope(selected.scope);setQuery('')}}>Expand group<ChevronRight size={14}/></button>}</div><div className="module-directions">{(['incoming','outgoing'] as const).map(direction=>{const edges=data?.edges.filter(e=>direction==='incoming'?e.target===selected.id:e.source===selected.id)||[];return <div key={direction}><h4>{direction==='incoming'?'Used by':'Connects to'}</h4>{edges.length?edges.slice(0,8).map((edge,i)=><button key={i} onClick={()=>setSelected(data?.nodes.find(n=>n.id===(direction==='incoming'?edge.source:edge.target))||null)}><span>{direction==='incoming'?edge.source:edge.target}</span><small>{edge.kind} · {edge.count}</small><ChevronRight size={13}/></button>):<p className="micro-muted">No resolved {direction} relationships in this view.</p>}</div>})}</div></section>}
+  </div>;
 }

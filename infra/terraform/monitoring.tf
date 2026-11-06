@@ -18,16 +18,17 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 resource "aws_cloudwatch_metric_alarm" "dlq" {
-  alarm_name          = "${local.name}-dead-letter-messages"
+  for_each            = local.kinds
+  alarm_name          = "${local.name}-${each.key}-dlq"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   metric_name         = "ApproximateNumberOfMessagesVisible"
   namespace           = "AWS/SQS"
-  period              = 300
+  period              = 60
   statistic           = "Maximum"
   threshold           = 0
   treat_missing_data  = "notBreaching"
-  dimensions          = { QueueName = aws_sqs_queue.deadletter.name }
+  dimensions          = { QueueName = aws_sqs_queue.dlq[each.key].name }
   alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 resource "aws_budgets_budget" "small_budget" {
@@ -38,33 +39,18 @@ resource "aws_budgets_budget" "small_budget" {
   time_unit    = "MONTHLY"
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                  = 50
-    threshold_type             = "PERCENTAGE"
+    threshold                  = 5
+    threshold_type             = "ABSOLUTE_VALUE"
     notification_type          = "ACTUAL"
     subscriber_email_addresses = [var.alert_email]
   }
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                  = 90
-    threshold_type             = "PERCENTAGE"
+    threshold                  = 10
+    threshold_type             = "ABSOLUTE_VALUE"
     notification_type          = "FORECASTED"
     subscriber_email_addresses = [var.alert_email]
   }
-}
-
-# Detect queued indexing work that hasn't been picked up for >=15 minutes.
-resource "aws_cloudwatch_metric_alarm" "queue_age" {
-  alarm_name          = "${local.name}-index-queue-age"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1
-  threshold           = 900
-  namespace           = "AWS/SQS"
-  metric_name         = "ApproximateAgeOfOldestMessage"
-  period              = 300
-  statistic           = "Maximum"
-  dimensions          = { QueueName = aws_sqs_queue.index.name }
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 
 resource "aws_cloudwatch_metric_alarm" "scaler_errors" {

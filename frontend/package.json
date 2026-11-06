@@ -8,20 +8,23 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.mjs"
+    "test": "node --test tests/*.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@fontsource-variable/dm-sans": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@monaco-editor/react": "^4.7.0",
-    "@xyflow/react": "^12.9.0",
     "lucide-react": "^0.468.0",
+    "monaco-editor": "^0.52.0",
+    "oidc-client-ts": "^3.3.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
-    "recharts": "^3.1.0",
-    "monaco-editor": "^0.52.0",
-    "oidc-client-ts": "^3.3.0"
+    "recharts": "^3.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
