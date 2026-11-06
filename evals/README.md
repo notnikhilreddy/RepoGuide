@@ -35,4 +35,4 @@ Live answer/router runners can call LLMs and external tools. Judge scoring is op
 
 `release_gate.py` rejects missing, partial, stale, cached, non-finite, unsafe or non-comparable evidence. Every required metric/slice must be non-worse; overlapping stochastic ranges that cannot establish that property block promotion. No rounding tolerance or lower-baseline reset is provided. Historical `ci_gate.py` thresholds are **not** a production deployment gate.
 
-Live requests are currently paused after Google AI Studio returned 503. No approved live baseline or candidate comparison exists. The corpus and evaluator are prepared for a later explicitly resumed run. Offline retrieval and fixture-driven worker tests do not replace live quality evaluation.
+The improvement release resumes OpenAI evaluation within a shared $2 reservation ledger. The exact deployed baseline is protected and verified against current AWS identities and immutable S3 artifacts. Candidate completion and comparison are recorded only after they succeed. See `docs/IMPROVEMENT_STATUS.md` for current status. Offline retrieval and fixture-driven worker tests do not replace the live quality gate.

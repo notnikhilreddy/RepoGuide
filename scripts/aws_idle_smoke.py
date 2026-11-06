@@ -54,6 +54,10 @@ def request(method, path, body=None):
             },
         )["AuthenticationResult"]["AccessToken"]
         auth_time = time.monotonic()
+    if method == "POST" and path == "/ask-jobs":
+        from acceptance_budget import reserve_answer
+
+        reserve_answer("real-minute-59-idle-reset")
     response = http.request(
         method,
         path,

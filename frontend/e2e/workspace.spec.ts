@@ -101,3 +101,13 @@ test('source explorer loads local workers with no external assets and offers sou
 test('mobile and reduced-motion browsing fit the viewport',async({page})=>{
   await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});await fixture(page);await page.goto('/');await expect(page.getByRole('button',{name:'Open navigation'})).toBeVisible();await page.getByRole('button',{name:'Open navigation'}).click();await page.getByRole('button',{name:'Conversations',exact:true}).click();await expect(page.getByLabel('Ask a question')).toBeVisible();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);expect(overflow).toBe(false);await page.screenshot({path:'../.artifacts/product-chat-mobile.png',fullPage:true});
 });
+
+test('hosted evaluation displays saved measurements and cannot launch paid benchmarks',async({page})=>{
+  const {posts}=await fixture(page);
+  await page.route('http://127.0.0.1:8899/api/ui/evaluations',route=>route.fulfill({headers:{'Access-Control-Allow-Origin':'*'},contentType:'application/json',body:JSON.stringify({datasets:[],reports:[{name:'measured.json',cases:2}]})}));
+  await page.route('http://127.0.0.1:8899/api/ui/evaluations/reports/measured.json',route=>route.fulfill({headers:{'Access-Control-Allow-Origin':'*'},contentType:'application/json',body:JSON.stringify({name:'measured.json',results:[],aggregate:{hybrid:{hit:.75,mrr:.5,file_recall:.5}},quality_metrics:{fact_coverage:.75,correctness:1,citation_precision:1},performance:{warm_p95_seconds:2.5},notes:'Mock HTTP transport for browser acceptance.'})}));
+  await page.goto('/');await page.getByRole('button',{name:/Quick navigation/}).click();await page.getByRole('combobox').fill('Evaluation reports');await page.getByRole('option').filter({hasText:'Evaluation reports'}).click();
+  await expect(page.getByRole('button',{name:'Run benchmark',exact:true})).toHaveCount(0);
+  await expect(page.locator('.stats-grid')).toContainText('75.0%');await expect(page.locator('.stats-grid')).toContainText('2.5s');
+  expect(posts.filter(path=>path.includes('evaluation-jobs'))).toEqual([]);
+});

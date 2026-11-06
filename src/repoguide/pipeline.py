@@ -7,7 +7,6 @@ per successful request and is followed by deterministic validation.
 from __future__ import annotations
 
 import json
-import re
 from typing import Iterator
 
 from repoguide.answers import (
@@ -32,12 +31,8 @@ class InvalidGeneration(ValueError):
 def _depth(question: str, requested: str) -> str:
     if requested != "auto":
         return requested
-    if len(question.split()) > 16 or re.search(
-        r"\b(explain in detail|architecture|end.to.end|entire flow|walk through)\b",
-        question,
-        re.I,
-    ):
-        return "detailed"
+    # Let the model cover the requested scope; question length and keyword
+    # matches do not justify an unsolicited detailed implementation catalogue.
     return "standard"
 
 
@@ -76,7 +71,7 @@ def _cache_key(state: dict, depth: str, tenant: str) -> str:
     state = {
         **state,
         "question": state["question"]
-        + f"|answer_depth={depth}|tenant={tenant}|prompt=v7|history="
+        + f"|answer_depth={depth}|tenant={tenant}|prompt=v8|history="
         + json.dumps(state.get("history", []), sort_keys=True),
     }
     return result_key(state, provider.provider, provider.model)
@@ -182,7 +177,7 @@ def answer(
                 "retrieval_mode": retrieval_mode,
                 "answer_depth": depth,
             },
-            {"pipeline.version": "7"},
+            {"pipeline.version": "8"},
         ) as root,
     ):
         if progress:

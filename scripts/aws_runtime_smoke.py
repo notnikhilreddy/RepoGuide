@@ -146,6 +146,10 @@ def wait_ready(kind):
 
 
 def submit(path, body):
+    if path == "/ask-jobs":
+        from acceptance_budget import reserve_answer
+
+        reserve_answer("native-" + args.phase)
     return request("POST", path, body, headers={"Idempotency-Key": str(uuid.uuid4())})
 
 

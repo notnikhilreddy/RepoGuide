@@ -67,6 +67,14 @@ if args.final:
     paths += [
         ".artifacts/product-database-rollout.json",
         ".artifacts/product-live-api-smoke.json",
+        ".artifacts/product-incremental-live-smoke.json",
+        ".artifacts/product-incremental-browser.json",
+        ".artifacts/published-evaluation-catalog.json",
+        ".artifacts/product-cloud-cleanup.json",
+        ".artifacts/product-vercel-cleanup.json",
+        ".artifacts/product-resource-inventory.json",
+        ".artifacts/product-source-secret-scan.json",
+        ".artifacts/playwright-results.json",
         "docs/deployment/product-release.md",
     ]
     paths += [
