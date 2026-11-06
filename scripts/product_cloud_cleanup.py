@@ -43,7 +43,17 @@ def consumer_tasks(session):
                         )["tasks"]
                     )
     events = session.client("events")
-    for page in events.get_paginator("list_event_buses").paginate():
+
+    def buses():
+        params = {}
+        while True:
+            page = events.list_event_buses(**params)
+            yield page
+            if not page.get("NextToken"):
+                return
+            params["NextToken"] = page["NextToken"]
+
+    for page in buses():
         for bus in page["EventBuses"]:
             for rules in events.get_paginator("list_rules").paginate(
                 EventBusName=bus["Name"]

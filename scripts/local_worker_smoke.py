@@ -1,8 +1,8 @@
 """Run real CPU model processes and fail-then-success jobs against Moto + local DB.
 
 SQS/DynamoDB/SSM transport is emulated; cloning, parsing, CPU models, PostgreSQL
-and citation validation are real. Generation uses a provider fixture while live
-evaluation is paused. No production DB is used.
+and citation validation are real. Generation uses an explicit provider fixture;
+separate live quality evaluation measures model behavior. No production DB is used.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ import uuid
 from pathlib import Path
 
 import boto3
-from update_runtime_settings import load_settings
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -82,9 +81,7 @@ db.put_item(
         }
     ),
 )
-values = load_settings(ROOT / ".env.deploy")
-secret_keys = []  # Live LLM evaluation is paused; use only the provider fixture.
-config = {k: values[k] for k in secret_keys if values.get(k)}
+config = {}
 config["DATABASE_URL"] = (
     "postgresql+psycopg://repoguide:repoguide@host.docker.internal:55432/repoguide?sslmode=require&connect_timeout=5"
 )
