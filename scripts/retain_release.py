@@ -99,6 +99,9 @@ if args.final:
     paths += [
         "reports/deployment-validation.json",
         ".artifacts/aws-idle-verification.json",
+        ".artifacts/aws-idle-observer-interrupted.json",
+        ".artifacts/aws-idle-index-authoritative.json",
+        ".artifacts/aws-idle-repeat-start.json",
         ".artifacts/aws-final-smoke.json",
         ".artifacts/aws-release-smoke.json",
         ".artifacts/aws-security-review.json",
